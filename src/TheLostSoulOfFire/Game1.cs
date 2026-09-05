@@ -18,6 +18,9 @@ public sealed class Game1 : Microsoft.Xna.Framework.Game
     private GameWorld _world = null!;
     private ArtAssets _art = null!;
     private SoulfireRenderer _soulfireRenderer = null!;
+    private readonly PresentationSettings _presentationSettings = new();
+    private readonly VisualRunOptions _visualOptions;
+    private readonly VisualScenarioRunner _visualScenarioRunner = null!;
     private readonly bool _audioGameplayTest;
     private readonly bool _audioDeathRestartTest;
     private bool _screenshotRequested;
@@ -29,11 +32,27 @@ public sealed class Game1 : Microsoft.Xna.Framework.Game
     private bool _audioTestCompleteSeen;
     private bool _audioTestRestartInjected;
     private bool _audioTestDeathRequested;
+    private int _visualTick;
+    private bool _exitAfterVisualCapture;
 
-    public Game1(bool audioGameplayTest = false, bool audioDeathRestartTest = false)
+    public Game1(
+        bool audioGameplayTest = false,
+        bool audioDeathRestartTest = false,
+        VisualRunOptions visualOptions = null!)
     {
         _audioGameplayTest = audioGameplayTest;
         _audioDeathRestartTest = audioDeathRestartTest;
+        _visualOptions = visualOptions ?? new VisualRunOptions();
+        if (_visualOptions.HasQuality)
+        {
+            _presentationSettings.SetQuality(_visualOptions.Quality);
+        }
+        _presentationSettings.SetReducedEffects(_visualOptions.ReducedEffects);
+        if (!string.IsNullOrEmpty(_visualOptions.VisualScenario))
+        {
+            _visualScenarioRunner = new VisualScenarioRunner(_visualOptions.VisualScenario);
+        }
+        _exitAfterVisualCapture = _visualOptions.ExitAfterCapture || !string.IsNullOrEmpty(_visualOptions.VisualScenario);
         _graphics = new GraphicsDeviceManager(this)
         {
             PreferredBackBufferWidth = GameBalance.BackBufferWidth,
@@ -60,13 +79,18 @@ public sealed class Game1 : Microsoft.Xna.Framework.Game
         _pixel = new Texture2D(GraphicsDevice, 1, 1);
         _pixel.SetData([Color.White]);
         _art = new ArtAssets(Content);
-        _world = new GameWorld(GraphicsDevice.Viewport, _art, Content);
-        _soulfireRenderer = new SoulfireRenderer(GraphicsDevice);
+        _world = new GameWorld(GraphicsDevice.Viewport, _art, Content, _presentationSettings);
+        _soulfireRenderer = new SoulfireRenderer(GraphicsDevice, _presentationSettings);
     }
 
     protected override void Update(GameTime gameTime)
     {
         _input.Update();
+        _visualTick++;
+        if (_visualScenarioRunner is not null)
+        {
+            _visualScenarioRunner.Update(_input, _world, GraphicsDevice.Viewport);
+        }
         if (_audioGameplayTest || _audioDeathRestartTest)
         {
             ConfigureAutomatedTest((float)gameTime.ElapsedGameTime.TotalSeconds);
@@ -84,7 +108,30 @@ public sealed class Game1 : Microsoft.Xna.Framework.Game
             _screenshotRequested = true;
         }
 
+        if (_input.WasKeyPressed(Keys.F10))
+        {
+            _presentationSettings.ToggleReducedEffects();
+            _screenshotStatus = $"Visual effects: {_presentationSettings.Summary}";
+        }
+
+        if (_input.WasKeyPressed(Keys.F11))
+        {
+            _presentationSettings.ToggleQuality();
+            _screenshotStatus = $"Visual quality: {_presentationSettings.Summary}";
+        }
+
         _world.Update(gameTime, _input, GraphicsDevice.Viewport);
+        if (_visualOptions.CaptureAfterTicks == _visualTick || _visualScenarioRunner is not null && _visualScenarioRunner.CaptureRequested)
+        {
+            _screenshotRequested = true;
+        }
+        if (_visualScenarioRunner is not null && _visualScenarioRunner.TimedOut)
+        {
+            Console.Error.WriteLine($"VISUAL_SCENARIO_TIMEOUT scenario={_visualScenarioRunner.Scenario} tick={_visualScenarioRunner.Tick}");
+            Environment.ExitCode = 1;
+            Exit();
+            return;
+        }
         if (_audioGameplayTest || _audioDeathRestartTest)
         {
             FinishAutomatedTestFrame();
@@ -103,12 +150,30 @@ public sealed class Game1 : Microsoft.Xna.Framework.Game
         if (_screenshotRequested)
         {
             _screenshotRequested = false;
-            _screenshotStatus = ScreenshotCapture.TrySaveBackBuffer(
-                GraphicsDevice,
-                _world.ScreenshotContext,
-                out string path)
+            string context = _visualScenarioRunner is not null ? _visualScenarioRunner.Scenario : _world.ScreenshotContext;
+            string outputName = _visualScenarioRunner is not null ? _visualScenarioRunner.Scenario : string.Empty;
+            string path;
+            bool captured = _visualOptions.HasCaptureRequest
+                ? ScreenshotCapture.TrySaveBackBuffer(
+                    GraphicsDevice,
+                    context,
+                    _visualOptions.CaptureOutput,
+                    outputName,
+                    out path)
+                : ScreenshotCapture.TrySaveBackBuffer(GraphicsDevice, context, out path);
+            _screenshotStatus = captured
                 ? $"Screenshot saved — {path}"
                 : $"Screenshot failed — {path}";
+            if (_visualScenarioRunner is not null)
+            {
+                _visualScenarioRunner.MarkCaptureHandled();
+            }
+            if (_exitAfterVisualCapture)
+            {
+                Console.WriteLine($"VISUAL_CAPTURE_{(captured ? "PASS" : "FAIL")} context={context} path={path} tick={_visualTick} settings={_presentationSettings.Summary}");
+                Environment.ExitCode = captured ? 0 : 1;
+                Exit();
+            }
         }
 
         base.Draw(gameTime);

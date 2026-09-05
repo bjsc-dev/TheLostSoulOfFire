@@ -10,18 +10,38 @@ public static class ScreenshotCapture
 {
     public static bool TrySaveBackBuffer(GraphicsDevice graphicsDevice, string context, out string result)
     {
+        string root = FindRepositoryRoot() ?? Directory.GetCurrentDirectory();
+        return TrySaveBackBuffer(
+            graphicsDevice,
+            context,
+            Path.Combine(root, "artifacts", "screenshots"),
+            string.Empty,
+            out result);
+    }
+
+    public static bool TrySaveBackBuffer(
+        GraphicsDevice graphicsDevice,
+        string context,
+        string outputDirectory,
+        string outputName,
+        out string result)
+    {
         try
         {
             string root = FindRepositoryRoot() ?? Directory.GetCurrentDirectory();
-            string directory = Path.Combine(root, "artifacts", "screenshots");
+            string directory = Path.IsPathRooted(outputDirectory)
+                ? outputDirectory
+                : Path.GetFullPath(outputDirectory, root);
             Directory.CreateDirectory(directory);
 
             string safeContext = string.Concat(context
                 .ToLowerInvariant()
                 .Select(character => char.IsLetterOrDigit(character) ? character : '_'))
                 .Trim('_');
-            string timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss_fff");
-            string path = Path.Combine(directory, $"{timestamp}_{safeContext}.png");
+            string name = string.IsNullOrWhiteSpace(outputName)
+                ? $"{DateTime.UtcNow:yyyyMMdd_HHmmss_fff}_{safeContext}"
+                : string.Concat(outputName.Select(character => char.IsLetterOrDigit(character) || character is '-' or '_' ? character : '_')).Trim('_');
+            string path = Path.Combine(directory, $"{name}.png");
 
             int width = graphicsDevice.PresentationParameters.BackBufferWidth;
             int height = graphicsDevice.PresentationParameters.BackBufferHeight;
@@ -54,7 +74,8 @@ public static class ScreenshotCapture
         DirectoryInfo directory = new(startPath);
         while (directory is not null)
         {
-            if (Directory.Exists(Path.Combine(directory.FullName, ".git")))
+            string gitMarker = Path.Combine(directory.FullName, ".git");
+            if (Directory.Exists(gitMarker) || File.Exists(gitMarker))
             {
                 return directory.FullName;
             }

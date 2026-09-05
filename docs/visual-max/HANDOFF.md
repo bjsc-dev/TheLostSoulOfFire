@@ -1,10 +1,24 @@
 # Visual Max handoff
 
-Status: **READY_WITH_ASSUMPTIONS** · Planning completed 2026-09-05.
+Status: **IN_PROGRESS** · renderer/VFX upgrade slice implemented 2026-09-05.
+
+## Current renderer/VFX slice
+
+Implemented a maintainable presentation vertical slice documented in [RENDERER-VFX-UPGRADE.md](RENDERER-VFX-UPGRADE.md): full-resolution emission isolation, high-quality shader-free soft emission, centralized presentation settings, reduced-effects controls, effect-family ownership/caps, additive sprite VFX, colored impact flashes, shared Soul Sense recoil transform and scripted visual captures.
+
+Quick test after a Release build:
+
+```bash
+dotnet run -c Release --no-build --project src/TheLostSoulOfFire -- \
+  --visual-scenario cannon-sense \
+  --capture-output artifacts/visual-review/renderer
+```
+
+Use **F10** for reduced effects and **F11** for high/baseline while running normally. Capture every implemented review scenario with `bash tools/visual-max/capture-renderer-review.sh` on a DesktopGL graphics host. The scenario runner and script are implementation evidence for this slice; they do not mark VM-03/VM-04 golden-comparison acceptance complete.
 
 ## Start here
 
-Read [VISUAL-MAX-PLAN.md](VISUAL-MAX-PLAN.md), then [IMPLEMENTATION-BACKLOG.md](IMPLEMENTATION-BACKLOG.md). Implement **VM-01 — Asset/build inventory and reference machine** first. Next is **VM-02 — Worktree-safe capture CLI and current baseline**. All nineteen implementation slices remain TODO. This session changed documentation and added two reusable templates; it did not refactor the game or implement the proposed harness.
+Read [VISUAL-MAX-PLAN.md](VISUAL-MAX-PLAN.md), [RENDERER-VFX-UPGRADE.md](RENDERER-VFX-UPGRADE.md), then [IMPLEMENTATION-BACKLOG.md](IMPLEMENTATION-BACKLOG.md). The original nineteen-slice backlog remains the acceptance tracker; this renderer/VFX vertical slice does not by itself mark a full VM slice DONE. It changed runtime rendering, VFX, input injection and capture tooling, while preserving the planned architecture.
 
 Use this next-session instruction:
 
@@ -16,7 +30,7 @@ For a later full-workstream request, select ready slices by priority and depende
 
 - Six requested planning documents, plus repository audit, visual QA design and this handoff.
 - Nineteen implementation slices with priorities, dependencies, scope, explicit acceptance criteria and evidence requirements.
-- Sixteen named visual scenarios and a proposed CLI/result contract; implementation is explicitly deferred.
+- Twelve implemented renderer/VFX visual scenarios, a timed capture CLI and a review-capture script; golden comparison/reporting remains future work.
 - Palette and cast rules, twelve VFX families, comfort controls, render-pass opportunities/budgets, an arena lore vignette and offline AI production workflow.
 - Reusable asset-brief and session-handoff templates; no new runtime dependency, generated asset, plugin installation or paid call.
 
@@ -24,7 +38,7 @@ The OpenAI Docs skill informed the Astra section by checking current official mo
 
 ## Baseline and verification
 
-Source baseline: `f510e4dcdefb837957c577cd197a8c22ca2f1116`. Worktree was clean at the start. Host: macOS 26.5, osx-arm64, installed .NET SDK 10.0.301/runtime 10.0.9. Project still targets `net9.0`, with `RollForward=Major`. Restore resolved MonoGame framework/tooling 3.8.5.1. GPU model and frame performance were not measured in this planning session.
+Source baseline: `f510e4dcdefb837957c577cd197a8c22ca2f1116`. Worktree was clean at the start. Host: macOS 26.5, osx-arm64, installed .NET SDK 10.0.301/runtime 10.0.9. Project still targets `net9.0`, with `RollForward=Major`. Restore resolved MonoGame framework/tooling 3.8.5.1. GPU model and frame performance remain unmeasured.
 
 | Check | Result | Details |
 |---|---|---|
@@ -36,9 +50,13 @@ Source baseline: `f510e4dcdefb837957c577cd197a8c22ca2f1116`. Worktree was clean 
 | Art audit with existing Pillow-capable runtime | PASS, exit 0 | 3 locked hashes, 7 static checks, 96 animation sheets, 12 VFX sheets, 116 content PNGs |
 | Automated gameplay in sandbox | Initial graphics-host failure, exit 134 | `NoSuitableGraphicsDeviceException` during OpenGL initialization |
 | Same automated gameplay with desktop access | PASS, exit 0 | `AUDIO_GAMEPLAY_TEST_PASS waves=4 completion=true restart=true` |
-| Fresh screenshot / visual-regression suite | NOT_RUN | No deterministic visual runner exists yet; archived capture inspected for reference only |
+| Golden comparison/report suite | NOT_RUN | Fixed-tick scenario captures now exist; VM-04 image comparison, metrics and adopted baselines remain unimplemented |
 | Performance / non-macOS runtime | NOT_RUN | No measured GPU budget or Windows/Linux runtime claim |
 | Documentation validation | PASS | Local links resolve across 11 Markdown files; all 6 requested files exist; 19 backlog sections match the index; whitespace/newline checks pass |
+| Release renderer/VFX build | PASS | `dotnet build TheLostSoulOfFire.sln -c Release --no-restore`; 0 warnings, 0 errors |
+| Release test command | Exit 0; NO TEST SUITE | `dotnet test TheLostSoulOfFire.sln -c Release --no-build --no-restore` found no test project |
+| Renderer capture scenarios | PASS | Twelve named high-quality captures at 1280×720 saved under `artifacts/visual-review/renderer`; baseline and reduced-effects comparison captures also saved |
+| Current automated gameplay smoke | PASS | DesktopGL run printed `AUDIO_GAMEPLAY_TEST_PASS waves=4 completion=true restart=true` after the renderer changes |
 
 The current runtime smoke command is:
 
@@ -56,13 +74,13 @@ python3 art/ludo_delivery/tools/audit_delivery.py
 
 The successful interpreter on this host was `/Users/user/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3`. That is a host-specific fallback, not a path to hardcode into new tooling. No package installation was needed. The ordinary Python audio validator also needs the Vorbis utilities documented by that script for full music checks; they were available here.
 
-Other existing runtime modes, **not run in this session**, are `--audio-runtime-test`, `--audio-loop-runtime-test` and `--audio-death-restart-test`. `--expect-audio-fallback` is meaningful when deliberately testing missing audio content; do not pass it to an intact-content run and expect a normal pass. Use only relevant modes after implementation changes.
+Other existing runtime modes, **not run in this renderer/VFX slice**, are `--audio-runtime-test`, `--audio-loop-runtime-test` and `--audio-death-restart-test`. `--expect-audio-fallback` is meaningful when deliberately testing missing audio content; do not pass it to an intact-content run and expect a normal pass. Use only relevant modes after implementation changes.
 
 ## Findings future sessions must preserve
 
 1. The repo is not a starter. The older current-repo addendum is stale; preserve existing GameWorld/entity/presentation structure.
-2. Current light is additive radial glow plus scene tint/veil/vignette. True bloom, normal maps, shadow maps and shader chromatic effects are proposals, not implemented baseline features.
-3. Screenshot root detection misses `.git` files. World/Soul Sense transforms differ during recoil. Both are evidenced early work, not a reason to replace the renderer.
+2. Current light is a full-resolution emissive target plus generated radial glow, with a high-quality shader-free half-resolution soft-emission halo. True bloom, normal maps, shadow maps and shader chromatic effects remain future experiments.
+3. Screenshot root discovery recognizes worktree `.git` files. World, glow and Soul Sense use the camera kick transform; logical mouse aim remains unshaken.
 4. Direction changes restart clip keys; some attack clips begin during telegraphs and risk timing drift. Inspect actual contact cells before retiming.
 5. Existing alpha/grid/locked-source audit is valuable but assumes exactly 116 PNGs; make future inventories extensible without rewriting history.
 6. The inspected archived in-game image has dark central floor and difficult actor separation; obtain current screenshots before treating those as present-day measured defects.
@@ -73,4 +91,4 @@ Other existing runtime modes, **not run in this session**, are `--audio-runtime-
 
 For each future slice, save its small durable evidence record, update the status/dependencies in the backlog, and replace the next-session pointer here. Keep bulk captures in ignored `artifacts/visual-max/`; preserve selected baseline images/manifests intentionally so another session can reproduce the comparison. Do not mark a slice DONE from build success alone when it changes visible behavior.
 
-No commit or push was made in this planning session. Runtime files, Content assets and OpenSpec/agent tooling were left unchanged.
+No commit or push was made. No Content assets, locked source art or OpenSpec/agent tooling were changed.

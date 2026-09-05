@@ -28,8 +28,9 @@ public sealed class GameWorld : IDisposable
     private readonly Arena _arena = new();
     private readonly AudioDirector _audio;
     private readonly Camera2D _camera;
-    private readonly ScreenEffects _screenEffects = new();
-    private readonly ParticleSystem _particles = new();
+    private readonly PresentationSettings _presentationSettings;
+    private readonly ScreenEffects _screenEffects;
+    private readonly ParticleSystem _particles;
     private readonly ArenaAtmosphere _arenaAtmosphere = new();
     private readonly HudRenderer _hud = new();
     private readonly SoulSensePresentation _soulSensePresentation = new();
@@ -64,11 +65,14 @@ public sealed class GameWorld : IDisposable
         ? $"The Lost Soul of Fire — DEBUG | Wave {_waveNumber}/4 {_loopState.ToString().ToUpperInvariant()} | HP {_player.Health} | RES {(_player.ResonanceActive ? $"ACTIVE {_player.ResonanceRemaining:0.0}s" : $"{_player.Resonance:0}/{GameBalance.ResonanceRequired:0}")} | Player {GetPlayerState()} | Enemies {_enemies.Count(enemy => enemy.IsAlive)} | Souls {_souls.Count}"
         : "The Lost Soul of Fire";
 
-    public GameWorld(Viewport viewport, ArtAssets art, ContentManager content)
+    public GameWorld(Viewport viewport, ArtAssets art, ContentManager content, PresentationSettings presentationSettings)
     {
         _art = art;
+        _presentationSettings = presentationSettings;
         _audio = new AudioDirector(content);
-        _spriteVfx = new SpriteVfxSystem(art);
+        _screenEffects = new ScreenEffects(presentationSettings);
+        _particles = new ParticleSystem(presentationSettings);
+        _spriteVfx = new SpriteVfxSystem(art, presentationSettings);
         _combatPresentation = new CombatPresentation(_particles, _screenEffects, _spriteVfx);
         _camera = new Camera2D(_arena.CombatBounds.Center.ToVector2());
         _player = new Player(_arena.CombatBounds.Center.ToVector2());
@@ -98,7 +102,10 @@ public sealed class GameWorld : IDisposable
 
         if (_loopState == ArenaLoopState.Title)
         {
-            if (input.AnyInputPressed && !input.WasKeyPressed(Keys.F9))
+            if (input.AnyInputPressed &&
+                !input.WasKeyPressed(Keys.F9) &&
+                !input.WasKeyPressed(Keys.F10) &&
+                !input.WasKeyPressed(Keys.F11))
             {
                 _audio.Play(AudioCue.TitleConfirm, 0.58f);
                 _loopState = ArenaLoopState.Intro;
@@ -372,7 +379,7 @@ public sealed class GameWorld : IDisposable
         _soulSensePresentation.DrawSoulLayer(
             batch,
             pixel,
-            _camera.GetTransform(viewport, _screenEffects.ShakeOffset),
+            _camera.GetTransform(viewport, _screenEffects.CameraOffset),
             _player,
             _enemies,
             _souls,
@@ -384,11 +391,12 @@ public sealed class GameWorld : IDisposable
 
     private void DrawScene(SpriteBatch batch, Texture2D pixel, Viewport viewport)
     {
+        Matrix worldTransform = _camera.GetTransform(viewport, _screenEffects.CameraOffset);
         batch.Begin(
             SpriteSortMode.Deferred,
             BlendState.AlphaBlend,
             SamplerState.PointClamp,
-            transformMatrix: _camera.GetTransform(viewport, _screenEffects.CameraOffset));
+            transformMatrix: worldTransform);
 
         _art.DrawArena(batch);
         _arenaAtmosphere.DrawBackground(batch, pixel, _soulSensePresentation.WorldSuppression);
@@ -440,7 +448,16 @@ public sealed class GameWorld : IDisposable
             }
         }
         _presentation.DrawWorldAccents(batch, pixel, _art, _loopState, _player.IsDead, _player, _arena.CombatBounds);
-        _spriteVfx.Draw(batch);
+        _spriteVfx.DrawAlpha(batch);
+        batch.End();
+
+        _spriteVfx.DrawAdditive(batch, worldTransform);
+
+        batch.Begin(
+            SpriteSortMode.Deferred,
+            BlendState.AlphaBlend,
+            SamplerState.PointClamp,
+            transformMatrix: worldTransform);
 
         if (_presentation.ShouldDrawAim(_loopState, _player.IsDead))
         {
@@ -462,6 +479,7 @@ public sealed class GameWorld : IDisposable
 
     private void DrawSoulfireLighting(SpriteBatch batch, SoulfireRenderer renderer, Viewport viewport)
     {
+        renderer.BeginEmission(viewport);
         SoulfireLighting.Draw(
             batch,
             renderer,
@@ -471,12 +489,14 @@ public sealed class GameWorld : IDisposable
             _souls,
             _cannonShots,
             _particles,
+            _spriteVfx,
             _arenaAtmosphere,
             _presentationTime,
             _soulSensePresentation.SoulEmergence,
             _loopState == ArenaLoopState.Complete,
             _presentation.GetLifeFlamePosition(_arena.CombatBounds),
             _presentation.GetLifeFlameAlpha());
+        renderer.CompositeEmission(batch, viewport);
     }
 
     private void DrawScreenFeedback(SpriteBatch batch, Texture2D pixel, Viewport viewport)
@@ -490,7 +510,7 @@ public sealed class GameWorld : IDisposable
 
         if (_screenEffects.FlashAlpha > 0f)
         {
-            batch.FillRectangle(pixel, new Rectangle(0, 0, viewport.Width, viewport.Height), GameBalance.DeathFlameBright * _screenEffects.FlashAlpha);
+            batch.FillRectangle(pixel, new Rectangle(0, 0, viewport.Width, viewport.Height), _screenEffects.FlashColor * _screenEffects.FlashAlpha);
         }
 
         if (_player.ResonanceActivationRemaining > 0f)
@@ -760,8 +780,8 @@ public sealed class GameWorld : IDisposable
     {
         int x = viewport.Width - 324;
         int y = 24;
-        batch.FillRectangle(pixel, new Rectangle(x - 14, y - 12, 308, 216), new Color(5, 5, 9) * 0.9f);
-        batch.DrawRectangle(pixel, new Rectangle(x - 14, y - 12, 308, 216), new Color(80, 220, 210) * 0.72f, 2f);
+        batch.FillRectangle(pixel, new Rectangle(x - 14, y - 12, 308, 264), new Color(5, 5, 9) * 0.9f);
+        batch.DrawRectangle(pixel, new Rectangle(x - 14, y - 12, 308, 264), new Color(80, 220, 210) * 0.72f, 2f);
 
         Color label = new(189, 231, 226);
         PixelText.Draw(batch, pixel, $"FPS: {_fps}", new Vector2(x, y), 2, label);
@@ -775,6 +795,9 @@ public sealed class GameWorld : IDisposable
         PixelText.Draw(batch, pixel, $"SOULS: {_souls.Count}", new Vector2(x, y + 120), 2, label);
         PixelText.Draw(batch, pixel, $"PLAYER: {GetPlayerState()}", new Vector2(x, y + 144), 2, label);
         PixelText.Draw(batch, pixel, $"SENSE FORCE: {(_forceSoulSense ? "ON" : "OFF")}", new Vector2(x, y + 168), 2, label);
+        PixelText.Draw(batch, pixel, $"VISUAL: {_presentationSettings.Summary}", new Vector2(x, y + 192), 2, label);
+        PixelText.Draw(batch, pixel, $"VFX: {_spriteVfx.ActiveCount}/{SpriteVfxSystem.Capacity} DROP {_spriteVfx.DroppedCount}", new Vector2(x, y + 216), 2, label);
+        PixelText.Draw(batch, pixel, $"PART: {_particles.ActiveCount}/{ParticleSystem.Capacity} DROP {_particles.DroppedCount}", new Vector2(x, y + 240), 2, label);
     }
 
     private void UpdateFps(float deltaTime)
