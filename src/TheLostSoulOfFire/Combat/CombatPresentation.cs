@@ -91,10 +91,17 @@ public sealed class CombatPresentation
         float contactScale = coreHit ? 0.66f : step switch { 1 => 0.27f, 2 => 0.38f, _ => 0.62f };
 
         _spriteVfx.Spawn("core_hit", position, MathF.Atan2(direction.Y, direction.X), contactScale, color);
-        _particles.EmitBurst(position, direction, particleCount, color, force, size);
+        _particles.EmitBurst(
+            position,
+            direction,
+            particleCount,
+            color,
+            force,
+            size,
+            coreHit || step == 3 ? VisualEffectPriority.Critical : VisualEffectPriority.Combat);
         if (step == 3)
         {
-            _particles.EmitDeathFlame(position, 7, 1.08f);
+            _particles.EmitDeathFlame(position, 7, 1.08f, VisualEffectPriority.Combat);
         }
     }
 
@@ -112,17 +119,17 @@ public sealed class CombatPresentation
         {
             case 1:
                 _screenEffects.AddShake(0.045f, 0.75f);
-                _screenEffects.Flash(0.035f, 0.055f);
+                _screenEffects.Flash(0.035f, 0.055f, GameBalance.DeathFlameBright);
                 break;
             case 2:
                 _screenEffects.AddShake(0.075f, 2.2f);
-                _screenEffects.Flash(0.05f, 0.1f);
+                _screenEffects.Flash(0.05f, 0.1f, GameBalance.DeathFlameBright);
                 break;
             default:
                 _screenEffects.BeginImpactFrame(0.038f);
                 _screenEffects.AddShake(0.19f, 7.5f);
                 _screenEffects.AddCameraKick(direction, 5.5f);
-                _screenEffects.Flash(0.085f, 0.27f);
+                _screenEffects.Flash(0.085f, 0.27f, GameBalance.SoulWhite);
                 break;
         }
     }
@@ -142,11 +149,19 @@ public sealed class CombatPresentation
             request.IsFullCharge ? 25 : 10,
             request.IsFullCharge ? GameBalance.SoulWhite : GameBalance.DeathFlameBright,
             request.IsFullCharge ? 370f : 185f,
-            request.IsFullCharge ? 10f : 5.5f);
-        _particles.EmitDeathFlame(origin, request.IsFullCharge ? 13 : 5, request.IsFullCharge ? 1.42f : 0.8f);
+            request.IsFullCharge ? 10f : 5.5f,
+            request.IsFullCharge ? VisualEffectPriority.Critical : VisualEffectPriority.Combat);
+        _particles.EmitDeathFlame(
+            origin,
+            request.IsFullCharge ? 13 : 5,
+            request.IsFullCharge ? 1.42f : 0.8f,
+            request.IsFullCharge ? VisualEffectPriority.Critical : VisualEffectPriority.Combat);
         _screenEffects.AddShake(request.IsFullCharge ? 0.24f : 0.08f, request.IsFullCharge ? 8f : 1.5f);
         _screenEffects.AddCameraKick(-request.Direction, request.IsFullCharge ? 12f : 3f);
-        _screenEffects.Flash(request.IsFullCharge ? 0.085f : 0.045f, request.IsFullCharge ? 0.28f : 0.1f);
+        _screenEffects.Flash(
+            request.IsFullCharge ? 0.085f : 0.045f,
+            request.IsFullCharge ? 0.28f : 0.1f,
+            request.IsFullCharge ? GameBalance.SoulWhite : GameBalance.DeathFlameBright);
     }
 
     public void PresentCannonImpact(
@@ -162,12 +177,26 @@ public sealed class CombatPresentation
             MathF.Atan2(direction.Y, direction.X),
             coreHit || fullCharge ? 0.82f : 0.42f,
             color);
-        _particles.EmitBurst(position, direction, fullCharge ? 30 : 14, color, fullCharge ? 390f : 215f, fullCharge ? 11f : 6f);
-        _particles.EmitDeathFlame(position, fullCharge ? 12 : 5, fullCharge ? 1.3f : 0.78f);
+        _particles.EmitBurst(
+            position,
+            direction,
+            fullCharge ? 30 : 14,
+            color,
+            fullCharge ? 390f : 215f,
+            fullCharge ? 11f : 6f,
+            coreHit || fullCharge ? VisualEffectPriority.Critical : VisualEffectPriority.Combat);
+        _particles.EmitDeathFlame(
+            position,
+            fullCharge ? 12 : 5,
+            fullCharge ? 1.3f : 0.78f,
+            fullCharge ? VisualEffectPriority.Critical : VisualEffectPriority.Combat);
         _screenEffects.BeginHitstop(fullCharge ? CombatFeedbackTuning.FullCannonHitstop : CombatFeedbackTuning.NormalCannonHitstop);
         _screenEffects.AddShake(fullCharge ? 0.25f : 0.09f, fullCharge ? 10.5f : 2.5f);
         _screenEffects.AddCameraKick(-direction, fullCharge ? 4.5f : 1.5f);
-        _screenEffects.Flash(fullCharge ? 0.095f : 0.05f, fullCharge ? 0.34f : 0.13f);
+        _screenEffects.Flash(
+            fullCharge ? 0.095f : 0.05f,
+            fullCharge ? 0.34f : 0.13f,
+            coreHit || fullCharge ? GameBalance.SoulWhite : GameBalance.DeathFlameBright);
         if (fullCharge)
         {
             _screenEffects.BeginImpactFrame(0.052f);
@@ -179,18 +208,25 @@ public sealed class CombatPresentation
         _particles.EmitConvergence(position, 18, 84f, GameBalance.DeathFlameBright, 0.2f, 5f);
         _screenEffects.BeginHitstop(0.035f);
         _screenEffects.AddCameraKick(-incomingDirection, 2.5f);
-        _screenEffects.Flash(0.045f, 0.11f);
+        _screenEffects.Flash(0.045f, 0.11f, GameBalance.DeathFlameBright);
     }
 
     public void PresentBurningDetonation(Vector2 position)
     {
         _spriteVfx.Spawn("burning_detonation", position, 0f, 0.88f);
-        _particles.EmitBurst(position, Vector2.UnitX, 42, GameBalance.DeathFlameBright, 430f, 12f);
-        _particles.EmitDeathFlame(position, 24, 1.55f);
+        _particles.EmitBurst(
+            position,
+            Vector2.UnitX,
+            42,
+            GameBalance.DeathFlameBright,
+            430f,
+            12f,
+            VisualEffectPriority.Critical);
+        _particles.EmitDeathFlame(position, 24, 1.55f, VisualEffectPriority.Critical);
         _screenEffects.BeginHitstop(CombatFeedbackTuning.BurningDetonationHitstop);
         _screenEffects.BeginImpactFrame(0.058f);
         _screenEffects.AddShake(0.3f, 12.5f);
-        _screenEffects.Flash(0.11f, 0.4f);
+        _screenEffects.Flash(0.11f, 0.4f, GameBalance.SoulWhite);
     }
 
     public void BeginResonance(Vector2 position)
@@ -210,10 +246,17 @@ public sealed class CombatPresentation
     private void PresentResonanceEruption()
     {
         _spriteVfx.Spawn("resonance_activate", _resonancePosition, 0f, 0.78f);
-        _particles.EmitBurst(_resonancePosition, -Vector2.UnitY, 36, GameBalance.SoulWhite, 345f, 11f);
-        _particles.EmitDeathFlame(_resonancePosition, 24, 1.7f);
+        _particles.EmitBurst(
+            _resonancePosition,
+            -Vector2.UnitY,
+            36,
+            GameBalance.SoulWhite,
+            345f,
+            11f,
+            VisualEffectPriority.Critical);
+        _particles.EmitDeathFlame(_resonancePosition, 24, 1.7f, VisualEffectPriority.Critical);
         _screenEffects.AddShake(0.34f, 14f);
         _screenEffects.AddCameraKick(Vector2.UnitY, 6f);
-        _screenEffects.Flash(0.13f, 0.48f);
+        _screenEffects.Flash(0.13f, 0.48f, GameBalance.SoulWhite);
     }
 }

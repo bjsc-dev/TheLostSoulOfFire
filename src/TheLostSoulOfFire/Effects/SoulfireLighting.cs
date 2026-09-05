@@ -20,6 +20,7 @@ public static class SoulfireLighting
         IReadOnlyList<Soul> souls,
         IReadOnlyList<CannonShot> cannonShots,
         ParticleSystem particles,
+        SpriteVfxSystem spriteVfx,
         ArenaAtmosphere arenaAtmosphere,
         float presentationTime,
         float soulSenseAmount,
@@ -32,6 +33,7 @@ public static class SoulfireLighting
 
         arenaAtmosphere.DrawLighting(batch, renderer, soulSenseAmount);
         particles.DrawLighting(batch, renderer);
+        spriteVfx.DrawLighting(batch, renderer);
         DrawSouls(batch, renderer, souls, soulSenseAmount, breathe);
         DrawEnemyEnergy(batch, renderer, enemies, soulSenseAmount, breathe);
         DrawCannonEnergy(batch, renderer, player, cannonShots);

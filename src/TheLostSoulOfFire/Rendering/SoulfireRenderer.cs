@@ -24,6 +24,8 @@ public static class SoulfireRenderSettings
     public const int VignetteTextureWidth = 256;
     public const int VignetteTextureHeight = 144;
     public const float GlowFalloff = 2.35f;
+    public const float SoftEmissionOpacity = 0.22f;
+    public const float SoftEmissionDownsampleOpacity = 0.68f;
 
     public const float PlayerCoreGlowRadius = 46f;
     public const float PlayerCoreGlowIntensity = 0.25f;
@@ -42,23 +44,28 @@ public static class SoulfireRenderSettings
 }
 
 /// <summary>
-/// A deliberately small render foundation: one crisp scene target, one procedural glow
-/// texture, and one procedural vignette. UI is drawn after this renderer has finished.
+/// A deliberately small render foundation: a crisp scene target, an emissive target that
+/// never contains HUD pixels, and procedural glow/vignette textures. High quality adds a
+/// low-resolution copy of emission for a restrained soft halo without requiring an .fx file.
 /// </summary>
 public sealed class SoulfireRenderer : IDisposable
 {
     private readonly GraphicsDevice _graphicsDevice;
+    private readonly PresentationSettings _settings;
     private readonly BlendState _lightBlend;
     private RenderTarget2D _sceneTarget;
+    private RenderTarget2D _emissionTarget;
+    private RenderTarget2D _softEmissionTarget = null!;
     private Texture2D _solidTexture;
     private Texture2D _glowTexture;
     private Texture2D _vignetteTexture;
     private int _targetWidth;
     private int _targetHeight;
 
-    public SoulfireRenderer(GraphicsDevice graphicsDevice)
+    public SoulfireRenderer(GraphicsDevice graphicsDevice, PresentationSettings settings)
     {
         _graphicsDevice = graphicsDevice;
+        _settings = settings;
         _lightBlend = new BlendState
         {
             ColorSourceBlend = Blend.One,
@@ -76,7 +83,7 @@ public sealed class SoulfireRenderer : IDisposable
 
     public void BeginScene(Viewport viewport)
     {
-        EnsureSceneTarget(viewport.Width, viewport.Height);
+        EnsureTargets(viewport.Width, viewport.Height);
         _graphicsDevice.SetRenderTarget(_sceneTarget);
         _graphicsDevice.Clear(GameBalance.VoidColor);
     }
@@ -89,9 +96,12 @@ public sealed class SoulfireRenderer : IDisposable
         Rectangle destination = new(0, 0, viewport.Width, viewport.Height);
         float suppression = MathHelper.Clamp(soulSenseWorldSuppression, 0f, 1f);
         Color sceneGrade = Color.Lerp(
-            SoulfireRenderSettings.SceneGrade,
-            GameBalance.SoulSenseWorldGrade,
-            suppression);
+            Color.White,
+            Color.Lerp(
+                SoulfireRenderSettings.SceneGrade,
+                GameBalance.SoulSenseWorldGrade,
+                suppression),
+            0.94f);
         batch.Begin(SpriteSortMode.Deferred, BlendState.Opaque, SamplerState.PointClamp);
         batch.Draw(_sceneTarget, destination, sceneGrade);
         batch.End();
@@ -111,6 +121,13 @@ public sealed class SoulfireRenderer : IDisposable
         batch.End();
     }
 
+    public void BeginEmission(Viewport viewport)
+    {
+        EnsureTargets(viewport.Width, viewport.Height);
+        _graphicsDevice.SetRenderTarget(_emissionTarget);
+        _graphicsDevice.Clear(Color.Transparent);
+    }
+
     public void BeginLighting(SpriteBatch batch, Matrix worldTransform) =>
         batch.Begin(
             SpriteSortMode.Deferred,
@@ -125,12 +142,40 @@ public sealed class SoulfireRenderer : IDisposable
             _glowTexture,
             position,
             null,
-            color * MathHelper.Clamp(intensity, 0f, 1f),
+            color * MathHelper.Clamp(intensity * _settings.GlowIntensityScale, 0f, 1f),
             0f,
             new Vector2(_glowTexture.Width, _glowTexture.Height) * 0.5f,
             diameter / _glowTexture.Width,
             SpriteEffects.None,
             0f);
+    }
+
+    public void CompositeEmission(SpriteBatch batch, Viewport viewport)
+    {
+        _graphicsDevice.SetRenderTarget(null);
+        Rectangle destination = new(0, 0, viewport.Width, viewport.Height);
+
+        if (_settings.UsesSoftEmission)
+        {
+            EnsureSoftEmissionTarget(viewport.Width, viewport.Height);
+            _graphicsDevice.SetRenderTarget(_softEmissionTarget);
+            _graphicsDevice.Clear(Color.Transparent);
+            batch.Begin(SpriteSortMode.Deferred, BlendState.Opaque, SamplerState.LinearClamp);
+            batch.Draw(
+                _emissionTarget,
+                new Rectangle(0, 0, _softEmissionTarget!.Width, _softEmissionTarget.Height),
+                Color.White * SoulfireRenderSettings.SoftEmissionDownsampleOpacity);
+            batch.End();
+            _graphicsDevice.SetRenderTarget(null);
+
+            batch.Begin(SpriteSortMode.Deferred, _lightBlend, SamplerState.LinearClamp);
+            batch.Draw(_softEmissionTarget, destination, Color.White * SoulfireRenderSettings.SoftEmissionOpacity);
+            batch.End();
+        }
+
+        batch.Begin(SpriteSortMode.Deferred, _lightBlend, SamplerState.LinearClamp);
+        batch.Draw(_emissionTarget, destination, Color.White);
+        batch.End();
     }
 
     public void DrawVignette(SpriteBatch batch, Viewport viewport, float soulSenseAmount, bool resonanceActive)
@@ -141,6 +186,7 @@ public sealed class SoulfireRenderer : IDisposable
         {
             opacity -= SoulfireRenderSettings.ResonanceVignetteReduction;
         }
+        opacity *= _settings.VignetteScale;
 
         batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.LinearClamp);
         batch.Draw(
@@ -153,6 +199,8 @@ public sealed class SoulfireRenderer : IDisposable
     public void Dispose()
     {
         _sceneTarget?.Dispose();
+        _emissionTarget?.Dispose();
+        _softEmissionTarget?.Dispose();
         _solidTexture.Dispose();
         _glowTexture.Dispose();
         _vignetteTexture.Dispose();
@@ -160,20 +208,53 @@ public sealed class SoulfireRenderer : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    private void EnsureSceneTarget(int width, int height)
+    private void EnsureTargets(int width, int height)
     {
-        if (_sceneTarget is not null && _targetWidth == width && _targetHeight == height)
+        if (_sceneTarget is not null && _emissionTarget is not null && _targetWidth == width && _targetHeight == height)
         {
             return;
         }
 
         _sceneTarget?.Dispose();
+        _emissionTarget?.Dispose();
+        _softEmissionTarget?.Dispose();
+        _softEmissionTarget = null;
         _targetWidth = width;
         _targetHeight = height;
         _sceneTarget = new RenderTarget2D(
             _graphicsDevice,
             width,
             height,
+            false,
+            SurfaceFormat.Color,
+            DepthFormat.None,
+            0,
+            RenderTargetUsage.DiscardContents);
+        _emissionTarget = new RenderTarget2D(
+            _graphicsDevice,
+            width,
+            height,
+            false,
+            SurfaceFormat.Color,
+            DepthFormat.None,
+            0,
+            RenderTargetUsage.DiscardContents);
+    }
+
+    private void EnsureSoftEmissionTarget(int width, int height)
+    {
+        int softWidth = Math.Max(1, width / 2);
+        int softHeight = Math.Max(1, height / 2);
+        if (_softEmissionTarget is not null && _softEmissionTarget.Width == softWidth && _softEmissionTarget.Height == softHeight)
+        {
+            return;
+        }
+
+        _softEmissionTarget?.Dispose();
+        _softEmissionTarget = new RenderTarget2D(
+            _graphicsDevice,
+            softWidth,
+            softHeight,
             false,
             SurfaceFormat.Color,
             DepthFormat.None,
