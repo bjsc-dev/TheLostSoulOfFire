@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "assetId": "effect.example",
+  "version": "v001",
+  "status": "BRIEF_READY",
+  "runtimeKey": "effect/example",
+  "owningSlice": "VM-17",
+  "contentPath": null,
+  "geometry": {
+    "frameWidth": 128,
+    "frameHeight": 128,
+    "frameCount": 9,
+    "columns": 3,
+    "rows": 3,
+    "fps": 12,
+    "loop": false,
+    "anchors": {
+      "center": [64, 64],
+      "feet": [64, 112],
+      "core": null,
+      "grip": null,
+      "muzzle": null
+    }
+  },
+  "provenance": {
+    "provider": "none",
+    "model": null,
+    "requestId": null,
+    "prompt": "",
+    "negativeConstraints": "",
+    "seed": null,
+    "sourcePath": null,
+    "sourceSha256": null,
+    "rightsEvidence": null,
+    "rightsCheckedAt": null,
+    "processing": []
+  },
+  "derived": null,
+  "budget": {
+    "maxCandidates": 2,
+    "maxRetries": 1,
+    "providerBudget": 0,
+    "fallback": "Use an existing approved asset or a simple procedural placeholder."
+  },
+  "review": {
+    "alpha": "pending",
+    "grid": "pending",
+    "inGameCapture": null,
+    "decision": "not reviewed"
+  }
+}

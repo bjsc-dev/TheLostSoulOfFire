@@ -87,6 +87,10 @@ public sealed class Game1 : Microsoft.Xna.Framework.Game
     {
         _input.Update();
         _visualTick++;
+        if (_visualOptions.CaptureStartAtTick == _visualTick)
+        {
+            _input.InjectKeyPress(Keys.Space);
+        }
         if (_visualScenarioRunner is not null)
         {
             _visualScenarioRunner.Update(_input, _world, GraphicsDevice.Viewport);
@@ -159,6 +163,7 @@ public sealed class Game1 : Microsoft.Xna.Framework.Game
                     context,
                     _visualOptions.CaptureOutput,
                     outputName,
+                    _visualTick,
                     out path)
                 : ScreenshotCapture.TrySaveBackBuffer(GraphicsDevice, context, out path);
             _screenshotStatus = captured

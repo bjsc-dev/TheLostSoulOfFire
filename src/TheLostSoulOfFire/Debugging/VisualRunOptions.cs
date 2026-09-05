@@ -10,6 +10,7 @@ namespace TheLostSoulOfFire.Debugging;
 public sealed class VisualRunOptions
 {
     public int CaptureAfterTicks { get; private set; } = -1;
+    public int CaptureStartAtTick { get; private set; } = -1;
     public string CaptureOutput { get; private set; } = string.Empty;
     public string VisualScenario { get; private set; } = string.Empty;
     public bool ExitAfterCapture { get; private set; }
@@ -43,6 +44,14 @@ public sealed class VisualRunOptions
                         return false;
                     }
                     options.CaptureOutput = output;
+                    break;
+
+                case "--capture-start-at-tick":
+                    if (!TryTakePositiveInt(args, ref index, argument, out int startTick, out error))
+                    {
+                        return false;
+                    }
+                    options.CaptureStartAtTick = startTick;
                     break;
 
                 case "--visual-scenario":
@@ -85,6 +94,12 @@ public sealed class VisualRunOptions
         if (options.HasCaptureRequest && string.IsNullOrEmpty(options.CaptureOutput))
         {
             options.CaptureOutput = "artifacts/visual-max/local-run";
+        }
+
+        if (options.CaptureStartAtTick >= 0 && !options.HasCaptureRequest)
+        {
+            error = "--capture-start-at-tick requires --capture-after-ticks or --visual-scenario.";
+            return false;
         }
 
         return true;
