@@ -24,3 +24,11 @@ Mit `Escape` oder der Zurück-Taste eines Controllers wird das Spiel beendet.
 DesktopGL erlaubt Builds für Windows, Linux und macOS. Spielinhalte werden in
 `Content/Content.mgcb` eingetragen und beim Build durch die Content-Pipeline
 verarbeitet.
+
+## Visual Max
+
+Der [Visual-Max-Masterplan](docs/visual-max/VISUAL-MAX-PLAN.md) beschreibt die
+visuelle Weiterentwicklung im bestehenden MonoGame/.NET-Stack. Der
+[Implementierungs-Backlog](docs/visual-max/IMPLEMENTATION-BACKLOG.md) enthält
+priorisierte Arbeitspakete mit Abnahmekriterien; das
+[Handoff](docs/visual-max/HANDOFF.md) dokumentiert Prüfstatus und nächste Schritte.
