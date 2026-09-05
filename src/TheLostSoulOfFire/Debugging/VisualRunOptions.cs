@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using TheLostSoulOfFire.Rendering;
 
 namespace TheLostSoulOfFire.Debugging;
@@ -17,6 +18,9 @@ public sealed class VisualRunOptions
     public bool HasQuality { get; private set; }
     public VisualQuality Quality { get; private set; } = VisualQuality.High;
     public bool ReducedEffects { get; private set; }
+    public int[] CaptureTicks { get; private set; } = [];
+    public bool ForceSoulSense { get; private set; }
+    public bool ForceResonance { get; private set; }
 
     public bool HasCaptureRequest => CaptureAfterTicks >= 0 || !string.IsNullOrEmpty(VisualScenario);
 
@@ -30,6 +34,24 @@ public sealed class VisualRunOptions
             string argument = args[index];
             switch (argument)
             {
+                case "--capture-ticks":
+                    if (!TryTakeValue(args, ref index, argument, out string tickList, out error)) return false;
+                    string[] entries = tickList.Split(',');
+                    if (entries.Length > 120 || entries.Any(entry => !int.TryParse(entry, out int tick) || tick < 1 || tick > 7200))
+                    {
+                        error = "--capture-ticks requires 1–120 comma-separated ticks between 1 and 7200.";
+                        return false;
+                    }
+                    options.CaptureTicks = entries.Select(int.Parse).Distinct().OrderBy(tick => tick).ToArray();
+                    break;
+
+                case "--soul-sense":
+                    options.ForceSoulSense = true;
+                    break;
+
+                case "--resonance":
+                    options.ForceResonance = true;
+                    break;
                 case "--capture-after-ticks":
                     if (!TryTakePositiveInt(args, ref index, argument, out int ticks, out error))
                     {
@@ -64,7 +86,7 @@ public sealed class VisualRunOptions
                         error = $"Unknown visual scenario '{scenario}'. Use one of: {VisualScenarioRunner.KnownScenarioList}.";
                         return false;
                     }
-                    options.VisualScenario = scenario;
+                    options.VisualScenario = scenario.ToLowerInvariant();
                     break;
 
                 case "--visual-quality":
@@ -89,6 +111,17 @@ public sealed class VisualRunOptions
                     options.ExitAfterCapture = true;
                     break;
             }
+        }
+
+        if ((options.CaptureTicks.Length > 0 || options.ForceSoulSense || options.ForceResonance) && string.IsNullOrEmpty(options.VisualScenario))
+        {
+            error = "--capture-ticks, --soul-sense and --resonance require --visual-scenario.";
+            return false;
+        }
+        if (options.CaptureTicks.Length > 0 && options.CaptureAfterTicks >= 0)
+        {
+            error = "Use --capture-ticks or --capture-after-ticks, not both.";
+            return false;
         }
 
         if (options.HasCaptureRequest && string.IsNullOrEmpty(options.CaptureOutput))

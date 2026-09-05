@@ -30,7 +30,8 @@ public static class ScreenshotCapture
         string outputDirectory,
         string outputName,
         int updateTick,
-        out string result)
+        out string result,
+        object visualState = null)
     {
         try
         {
@@ -47,7 +48,7 @@ public static class ScreenshotCapture
             screenshot.SetData(pixels);
             using FileStream stream = File.Create(path);
             screenshot.SaveAsPng(stream, width, height);
-            WriteMetadata(path, root, context, updateTick, width, height);
+            WriteMetadata(path, root, context, updateTick, width, height, visualState);
 
             result = Path.GetRelativePath(root, path);
             return true;
@@ -82,15 +83,16 @@ public static class ScreenshotCapture
         path = Path.Combine(directory, $"{name}.png");
     }
 
-    private static void WriteMetadata(string imagePath, string root, string context, int updateTick, int width, int height)
+    private static void WriteMetadata(string imagePath, string root, string context, int updateTick, int width, int height, object visualState)
     {
         string metadataPath = Path.ChangeExtension(imagePath, ".json");
         object metadata = new
         {
-            schemaVersion = 1,
+            schemaVersion = 2,
             capturedAtUtc = DateTime.UtcNow.ToString("O"),
             context,
             updateTick,
+            visualState,
             dimensions = new { width, height },
             image = Path.GetRelativePath(root, imagePath),
             build = new

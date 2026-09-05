@@ -40,7 +40,7 @@ public sealed class InputState
         }
     }
 
-    public void Update()
+    public void Update(bool ignoreHardware = false)
     {
         _injectedPresses.Clear();
         _previousInjectedHeldKeys.Clear();
@@ -53,8 +53,8 @@ public sealed class InputState
         _injectedMousePosition = null;
         _previousKeyboard = _keyboard;
         _previousMouse = _mouse;
-        _keyboard = Keyboard.GetState();
-        _mouse = Mouse.GetState();
+        _keyboard = ignoreHardware ? new KeyboardState() : Keyboard.GetState();
+        _mouse = ignoreHardware ? new MouseState() : Mouse.GetState();
     }
 
     public bool IsKeyDown(Keys key) => _injectedHeldKeys.Contains(key) || _keyboard.IsKeyDown(key);

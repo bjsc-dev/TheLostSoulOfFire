@@ -60,6 +60,39 @@ public sealed class GameWorld : IDisposable
     public ArenaLoopState LoopState => _loopState;
     public int WaveNumber => _waveNumber;
     public bool PlayerDead => _player.IsDead;
+    public float PresentationStateTime => _presentation.StateTime;
+
+    // Used only by VisualScenarioRunner. Arrange actual entities; their normal
+    // Update methods still own AI, damage, timings and knockback.
+    internal void ArrangeVisualSubject(string scenario)
+    {
+        Enemy subject = scenario switch
+        {
+            "hollow-swipe" => new Hollow(_player.Position + new Vector2(165f, 0f), 1),
+            "scythe-combo" => new Hollow(_player.Position + new Vector2(94f, 0f), 1),
+            "burning-charge" => new Burning(_player.Position + new Vector2(310f, 0f), 1),
+            "devourer-slam" => new Devourer(_player.Position + new Vector2(210f, 0f)),
+            _ => throw new ArgumentOutOfRangeException(nameof(scenario))
+        };
+        _enemies.Clear();
+        _souls.Clear();
+        _enemies.Add(subject);
+    }
+
+    public object VisualSnapshot => new
+    {
+        fixtureVersion = 2,
+        loopState = _loopState.ToString(), wave = _waveNumber,
+        stateTime = _presentation.StateTime, playerDead = _player.IsDead,
+        player = new { x = _player.Position.X, y = _player.Position.Y, health = _player.Health,
+            scythe = _player.Scythe.StateLabel, cannon = _player.Cannon.State.ToString(),
+            resonance = _player.ResonanceActive, sense = _player.SoulSenseActive },
+        enemies = _enemies.Select(enemy => new { family = enemy.GetType().Name, state = enemy.StateLabel,
+            x = enemy.Position.X, y = enemy.Position.Y }).ToArray(),
+        souls = _souls.Select(soul => new { state = soul.State.ToString(), x = soul.Position.X, y = soul.Position.Y }).ToArray(),
+        particles = _particles.ActiveCount, spriteEffects = _spriteVfx.ActiveCount,
+        settings = _presentationSettings.Summary
+    };
 
     public string WindowTitle => _debugVisible
         ? $"The Lost Soul of Fire — DEBUG | Wave {_waveNumber}/4 {_loopState.ToString().ToUpperInvariant()} | HP {_player.Health} | RES {(_player.ResonanceActive ? $"ACTIVE {_player.ResonanceRemaining:0.0}s" : $"{_player.Resonance:0}/{GameBalance.ResonanceRequired:0}")} | Player {GetPlayerState()} | Enemies {_enemies.Count(enemy => enemy.IsAlive)} | Souls {_souls.Count}"
@@ -261,7 +294,8 @@ public sealed class GameWorld : IDisposable
                 "dash_ignition",
                 _player.Position - _player.DashDirection * 24f,
                 MathF.Atan2(_player.DashDirection.Y, _player.DashDirection.X),
-                0.72f);
+                0.5f,
+                GameBalance.DeathFlameBright * 0.65f);
         }
         if (!wasResonanceActive && _player.ResonanceActive)
         {
@@ -374,8 +408,9 @@ public sealed class GameWorld : IDisposable
     {
         renderer.BeginScene(viewport);
         DrawScene(batch, pixel, viewport);
-        renderer.PresentScene(batch, viewport, _soulSensePresentation.WorldSuppression);
         DrawSoulfireLighting(batch, renderer, viewport);
+        renderer.DrawVignette(batch, viewport, _soulSensePresentation.WorldSuppression, _player.ResonanceActive);
+        DrawScreenFeedback(batch, pixel, viewport);
         _soulSensePresentation.DrawSoulLayer(
             batch,
             pixel,
@@ -384,8 +419,10 @@ public sealed class GameWorld : IDisposable
             _enemies,
             _souls,
             _presentationTime);
-        renderer.DrawVignette(batch, viewport, _soulSensePresentation.WorldSuppression, _player.ResonanceActive);
-        DrawScreenFeedback(batch, pixel, viewport);
+        batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp,
+            transformMatrix: _camera.GetTransform(viewport, _screenEffects.CameraOffset));
+        ThreatPresentation.Draw(batch, pixel, _enemies);
+        batch.End();
         DrawHud(batch, pixel, viewport);
     }
 
@@ -401,6 +438,14 @@ public sealed class GameWorld : IDisposable
         _art.DrawArena(batch);
         _arenaAtmosphere.DrawBackground(batch, pixel, _soulSensePresentation.WorldSuppression);
         DrawArenaLoop(batch, pixel);
+        foreach (Enemy enemy in _enemies)
+        {
+            if (!enemy.IsAlive) continue;
+            float width = enemy is Devourer ? 43f : enemy is Burning ? 23f : 19f;
+            float foot = enemy is Devourer ? 65f : 43f;
+            batch.FillEllipse(pixel, enemy.Position + new Vector2(0f, foot), width, width * 0.24f,
+                new Color(3, 3, 7) * 0.52f);
+        }
         if (_loopState != ArenaLoopState.Title)
         {
             _player.DrawAfterimages(batch, pixel);
@@ -423,7 +468,7 @@ public sealed class GameWorld : IDisposable
         _particles.Draw(batch, pixel);
         if (_presentation.ShouldDrawPlayer(_loopState, _player.IsDead))
         {
-            batch.FillCircle(pixel, _player.Position + new Vector2(3f, 8f), 24f, new Color(3, 3, 7) * 0.55f);
+            batch.FillEllipse(pixel, _player.Position + new Vector2(0f, 40f), 20f, 5f, new Color(3, 3, 7) * 0.58f);
             _art.DrawPlayer(batch, _player);
             _player.Draw(batch, pixel, _art, _debugVisible, _soulSensePresentation.SoulEmergence);
             if (_player.Cannon.State == SoulCannonState.Charging)
@@ -496,7 +541,7 @@ public sealed class GameWorld : IDisposable
             _loopState == ArenaLoopState.Complete,
             _presentation.GetLifeFlamePosition(_arena.CombatBounds),
             _presentation.GetLifeFlameAlpha());
-        renderer.CompositeEmission(batch, viewport);
+        renderer.CompositeEmission(batch, viewport, _soulSensePresentation.WorldSuppression);
     }
 
     private void DrawScreenFeedback(SpriteBatch batch, Texture2D pixel, Viewport viewport)
@@ -505,7 +550,7 @@ public sealed class GameWorld : IDisposable
 
         if (_screenEffects.ImpactFrameAlpha > 0f)
         {
-            batch.FillRectangle(pixel, new Rectangle(0, 0, viewport.Width, viewport.Height), Color.Black * (_screenEffects.ImpactFrameAlpha * 0.82f));
+            batch.FillRectangle(pixel, new Rectangle(0, 0, viewport.Width, viewport.Height), Color.Black * (_screenEffects.ImpactFrameAlpha * 0.3f));
         }
 
         if (_screenEffects.FlashAlpha > 0f)
@@ -516,7 +561,7 @@ public sealed class GameWorld : IDisposable
         if (_player.ResonanceActivationRemaining > 0f)
         {
             float activationFade = MathHelper.Clamp(_player.ResonanceActivationRemaining / 0.5f, 0f, 1f);
-            batch.FillRectangle(pixel, new Rectangle(0, 0, viewport.Width, viewport.Height), Color.Black * (activationFade * 0.38f));
+            batch.FillRectangle(pixel, new Rectangle(0, 0, viewport.Width, viewport.Height), Color.Black * (activationFade * 0.1f * _presentationSettings.FlashScale));
         }
 
         batch.End();

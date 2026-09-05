@@ -297,7 +297,7 @@ public sealed class ArenaAtmosphere
                 batch,
                 source.Position,
                 source.Radius,
-                new Color(181, 76, 34),
+                GameBalance.DeathFlame,
                 intensity);
         }
 
@@ -407,8 +407,8 @@ public sealed class ArenaAtmosphere
 
     private void DrawFurnaceFaces(SpriteBatch batch, Texture2D pixel, float physicalVisibility)
     {
-        Color deepHeat = new(106, 38, 25);
-        Color ironHeat = new(179, 72, 32);
+        Color deepHeat = GameBalance.DeepViolet;
+        Color ironHeat = GameBalance.DeathFlame;
         float calm = MathHelper.Lerp(0.45f, 1f, _activity);
 
         for (int i = 0; i < FurnaceSources.Length; i++)
@@ -478,7 +478,7 @@ public sealed class ArenaAtmosphere
                     pixel,
                     particle.Position,
                     particle.Position - particle.Velocity * 0.035f,
-                    new Color(194, 80, 34) * (commonAlpha * physicalVisibility),
+                    GameBalance.DeathFlame * (commonAlpha * physicalVisibility),
                     MathF.Max(1f, size));
                 break;
 

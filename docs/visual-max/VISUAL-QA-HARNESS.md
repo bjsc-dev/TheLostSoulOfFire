@@ -1,6 +1,6 @@
 # Screenshot and visual QA harness
 
-Status: DESIGN_READY; **the proposed CLI/runner below does not exist yet**. VM-02 creates basic capture, VM-03 adds deterministic fixtures, VM-04 adds comparisons and metrics. F9 and existing audio test modes are the only current capture/test entry points described here as implemented.
+Status: PARTIALLY IMPLEMENTED. The current twelve-scenario runner, exact-tick sequences, state sidecars, isolated threat fixtures and missing-world/repeat checks are documented in [Astra final handoff](ASTRA-FINAL-HANDOFF.md). Run `bash tools/visual-max/capture-astra-review.sh`. The broader sixteen-scenario catalog, resolution/seed CLI, full performance metrics and cross-driver golden suite below remain design targets; do not treat them as implemented flags.
 
 ## Goal and architecture
 

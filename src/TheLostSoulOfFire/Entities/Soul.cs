@@ -27,6 +27,8 @@ public sealed class Soul
     public SoulState State { get; private set; } = SoulState.Exposed;
     public Vector2 Position { get; private set; }
     public bool IsFinished => State == SoulState.Released;
+    public float ReleaseProgress => State == SoulState.Releasing
+        ? 1f - MathHelper.Clamp(_stateTimer / GameBalance.SoulReleaseDuration, 0f, 1f) : 0f;
     public bool CanBeDevoured => State is SoulState.Exposed or SoulState.Releasing or SoulState.BeingDevoured;
 
     public Soul(Vector2 position)
@@ -150,10 +152,9 @@ public sealed class Soul
 
         if (State == SoulState.Releasing)
         {
-            Vector2 playerCore = player.Position + player.FacingDirection * 2f;
-            batch.DrawLine(pixel, playerCore, Position, GameBalance.DeepViolet * (0.42f + releaseProgress * 0.3f), 5f);
-            batch.DrawLine(pixel, playerCore, Position, GameBalance.DeathFlameBright * (0.45f + releaseProgress * 0.4f), 1.5f);
-            batch.DrawCircle(pixel, Position, 22f + releaseProgress * 18f, glow * (1f - releaseProgress) * 0.7f, 3f, 24);
+            // The intact Soul departs freely. Only the later residue returns;
+            // a tether to the Player falsely implied Soul consumption.
+            batch.DrawCircle(pixel, Position, 22f + releaseProgress * 18f, glow * (1f - releaseProgress) * 0.24f, 1.5f, 24);
         }
     }
 

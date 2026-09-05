@@ -70,7 +70,12 @@ public sealed class SoulSensePresentation
             SamplerState.PointClamp,
             transformMatrix: worldTransform);
 
-        DrawTraces(batch, pixel, presentationTime, amount);
+        bool imminentThreat = false;
+        foreach (Enemy enemy in enemies)
+            imminentThreat |= enemy is Hollow { State: HollowState.Telegraph or HollowState.Swipe }
+                or Burning { State: BurningState.Telegraph or BurningState.Charge }
+                or Devourer { State: DevourerState.SlamTelegraph or DevourerState.Slam };
+        DrawTraces(batch, pixel, presentationTime, amount * (imminentThreat ? 0.22f : 0.55f));
         DrawSouls(batch, pixel, souls, presentationTime, amount);
         DrawEnemySouls(batch, pixel, enemies, presentationTime, amount);
         DrawPlayerResponse(batch, pixel, player, presentationTime, amount);
@@ -111,13 +116,12 @@ public sealed class SoulSensePresentation
             for (int node = 1; node < path.Length - 1; node += 2)
             {
                 float nodePulse = 0.7f + 0.3f * MathF.Sin(time * 2.7f + pathIndex * 1.9f + node);
-                batch.DrawCircle(pixel, path[node], 5f + nodePulse * 2f, GameBalance.SoulSenseTrace * (0.18f * amount), 1.5f, 12);
-                batch.FillCircle(pixel, path[node], 1.5f, GameBalance.SoulWhite * (0.22f * amount));
+                batch.DrawLine(pixel, path[node] - new Vector2(2f, 0f), path[node] + new Vector2(2f, -3f),
+                    GameBalance.SoulSenseTrace * (0.22f * nodePulse * amount), 1f);
             }
 
             float travel = (time * 0.055f + pathIndex * 0.31f) % 1f;
             Vector2 mote = PointAlongPath(path, travel);
-            batch.DrawCircle(pixel, mote, 8f, GameBalance.DeathFlame * (0.22f * amount), 1.5f, 12);
             batch.FillCircle(pixel, mote, 2f, GameBalance.SoulWhite * (0.58f * amount));
         }
     }
@@ -176,9 +180,11 @@ public sealed class SoulSensePresentation
                     Vector2[] fractures = burning.GetFracturePositions();
                     foreach (Vector2 fracture in fractures)
                     {
-                        batch.FillCircle(pixel, fracture, 9f, GameBalance.DeepViolet * (0.6f * amount));
-                        batch.DrawCircle(pixel, fracture, 8f + pulse * 2f, GameBalance.DeathFlameBright * (0.52f * amount), 2f, 14);
-                        batch.FillCircle(pixel, fracture, 4f, GameBalance.SoulWhite * (0.98f * amount));
+                        batch.DrawLine(pixel, fracture - new Vector2(5f, 7f), fracture + new Vector2(4f, 6f),
+                            new Color(7, 6, 12) * amount, 6f);
+                        batch.DrawLine(pixel, fracture - new Vector2(4f, 6f), fracture + new Vector2(3f, 5f),
+                            GameBalance.DeathFlameBright * (0.82f * amount), 2f);
+                        batch.FillCircle(pixel, fracture, 2.5f, GameBalance.SoulWhite * amount);
                     }
                     break;
 
@@ -197,10 +203,17 @@ public sealed class SoulSensePresentation
         float pulse,
         float amount)
     {
-        batch.FillCircle(pixel, position, radius, GameBalance.DeepViolet * (0.72f * amount));
-        batch.DrawCircle(pixel, position, radius + 3f + pulse * 2f, GameBalance.DeathFlameBright * (0.5f * amount), 2f, 18);
-        batch.FillCircle(pixel, position, 8f, GameBalance.DeathFlameBright * (0.9f * amount));
-        batch.FillCircle(pixel, position, 5f, GameBalance.SoulWhite * amount);
+        batch.FillCircle(pixel, position, 9f, new Color(7, 6, 12) * (0.88f * amount));
+        float extent = 10f + pulse;
+        for (int i = 0; i < 4; i++)
+        {
+            float angle = i * MathHelper.PiOver2;
+            Vector2 axis = new(MathF.Cos(angle), MathF.Sin(angle));
+            batch.DrawLine(pixel, position + axis * extent, position + axis * (extent + 3f),
+                GameBalance.DeathFlameBright * (0.64f * amount), 1.5f);
+        }
+        batch.FillCircle(pixel, position, 5f, GameBalance.DeathFlameBright * (0.9f * amount));
+        batch.FillCircle(pixel, position, 3f, GameBalance.SoulWhite * amount);
     }
 
     private static void DrawDevourerSoul(
@@ -212,8 +225,8 @@ public sealed class SoulSensePresentation
         float amount)
     {
         Vector2 torso = devourer.TorsoPosition;
-        batch.FillCircle(pixel, torso, 22f + pulse * 2f, GameBalance.DeepViolet * (0.48f * amount));
-        batch.FillCircle(pixel, torso, 5f, GameBalance.SoulWhite * (0.94f * amount));
+        batch.DrawArc(pixel, torso, 18f + pulse, 0.3f, 2.2f, GameBalance.DeathFlame * (0.38f * amount), 2f, 18);
+        batch.FillCircle(pixel, torso, 3f, GameBalance.DeathFlameBright * (0.86f * amount));
 
         for (int index = 0; index < devourer.ConsumedSoulCount; index++)
         {

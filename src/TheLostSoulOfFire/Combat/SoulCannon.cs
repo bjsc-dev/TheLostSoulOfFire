@@ -280,7 +280,7 @@ public sealed class SoulCannon
         float pulse)
     {
         Vector2 direction = Vector2.Normalize(barrel - stock);
-        float rotation = MathF.Atan2(direction.Y, direction.X) + MathF.PI;
+        float rotation = MathF.Atan2(direction.Y, direction.X);
         float displayLength = Vector2.Distance(stock, barrel) + 36f;
         batch.Draw(
             weaponTexture,

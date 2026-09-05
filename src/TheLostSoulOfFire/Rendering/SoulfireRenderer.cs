@@ -150,9 +150,8 @@ public sealed class SoulfireRenderer : IDisposable
             0f);
     }
 
-    public void CompositeEmission(SpriteBatch batch, Viewport viewport)
+    public void CompositeEmission(SpriteBatch batch, Viewport viewport, float soulSenseWorldSuppression = 0f)
     {
-        _graphicsDevice.SetRenderTarget(null);
         Rectangle destination = new(0, 0, viewport.Width, viewport.Height);
 
         if (_settings.UsesSoftEmission)
@@ -166,8 +165,13 @@ public sealed class SoulfireRenderer : IDisposable
                 new Rectangle(0, 0, _softEmissionTarget!.Width, _softEmissionTarget.Height),
                 Color.White * SoulfireRenderSettings.SoftEmissionDownsampleOpacity);
             batch.End();
-            _graphicsDevice.SetRenderTarget(null);
+        }
 
+        // Finish every offscreen pass before touching the backbuffer. DesktopGL
+        // may discard its contents whenever another render target is bound.
+        PresentScene(batch, viewport, soulSenseWorldSuppression);
+        if (_settings.UsesSoftEmission)
+        {
             batch.Begin(SpriteSortMode.Deferred, _lightBlend, SamplerState.LinearClamp);
             batch.Draw(_softEmissionTarget, destination, Color.White * SoulfireRenderSettings.SoftEmissionOpacity);
             batch.End();

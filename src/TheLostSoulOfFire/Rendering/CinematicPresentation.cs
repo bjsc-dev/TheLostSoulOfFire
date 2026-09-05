@@ -312,7 +312,7 @@ public sealed class CinematicPresentation
         DrawTitleRules(batch, pixel, viewport, viewport.Height * 0.39f - 34f, endingReveal * 0.66f);
         PixelText.DrawCentered(batch, pixel, "THE LOST SOUL OF FIRE", viewport.Width * 0.5f, viewport.Height * 0.39f, 5, GameBalance.SoulWhite * endingReveal);
         Color lifeFlame = new(255, 178, 82);
-        PixelText.DrawCentered(batch, pixel, "PROTOTYPE COMPLETE", viewport.Width * 0.5f, viewport.Height * 0.46f, 2, lifeFlame * (0.76f * Ease((_stateTime - 3.8f) / 0.7f)));
+        PixelText.DrawCentered(batch, pixel, "A FLAME REMAINS", viewport.Width * 0.5f, viewport.Height * 0.46f, 2, lifeFlame * (0.76f * Ease((_stateTime - 3.8f) / 0.7f)));
 
         float promptReveal = Ease((_stateTime - 5.2f) / 0.65f);
         float promptBreathe = 0.56f + MathF.Sin(_stateTime * 2f) * 0.1f;

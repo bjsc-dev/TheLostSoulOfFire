@@ -237,13 +237,15 @@ public sealed class Player
 
         if (ResonanceActive)
         {
-            float flare = 0.5f + 0.5f * MathF.Sin(_visualTime * 11f);
-            batch.DrawCircle(pixel, Position, 34f + flare * 6f, GameBalance.DeathFlame * 0.72f, 8f, 28);
-            batch.DrawLine(pixel, Position - right * 20f, Position - right * 32f - Vector2.UnitY * (30f + flare * 15f), GameBalance.DeathFlame * 0.62f, 8f);
-            batch.DrawLine(pixel, Position + right * 18f, Position + right * 29f - Vector2.UnitY * (37f + flare * 11f), GameBalance.DeathFlameBright * 0.7f, 6f);
+            float flare = 0.5f + 0.5f * MathF.Sin(_visualTime * 3.8f);
+            // Broken, quiet crown leaves the coat and current attack legible.
+            for (int i = 0; i < 3; i++)
+                batch.DrawArc(pixel, Position, 30f + flare * 2f,
+                    i * MathHelper.TwoPi / 3f + 0.2f, 0.75f,
+                    GameBalance.DeathFlame * 0.42f, 2f, 8);
         }
 
-        Cannon.DrawBack(batch, pixel, art.SoulCannon, Position, FacingDirection);
+        // The directional body sheet already includes the stored cannon.
         Scythe.Draw(batch, pixel, art.PhysicalScythe, Position, FacingDirection, debugVisible);
 
         Vector2 head = Position + FacingDirection * 18f;

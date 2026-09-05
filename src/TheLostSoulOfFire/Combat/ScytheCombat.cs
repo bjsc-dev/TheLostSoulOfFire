@@ -200,15 +200,15 @@ public sealed class ScytheCombat
         Vector2 facingDirection)
     {
         Vector2 right = new(-facingDirection.Y, facingDirection.X);
-        float rotation = MathF.Atan2(facingDirection.Y, facingDirection.X);
+        float rotation = MathF.Atan2(facingDirection.Y, facingDirection.X) + 0.35f;
         batch.Draw(
             physicalScythe,
-            playerPosition + facingDirection * 10f + right * 3f,
+            playerPosition + facingDirection * 12f + right * 8f,
             null,
             Color.White,
             rotation,
-            new Vector2(physicalScythe.Width, physicalScythe.Height) * 0.5f,
-            0.52f,
+            new Vector2(148f, 158f),
+            0.46f,
             SpriteEffects.None,
             0f);
     }
@@ -235,7 +235,7 @@ public sealed class ScytheCombat
         float start = aim - totalArc * 0.5f;
         float current = start + totalArc * eased;
         float radius = ActiveStep switch { 1 => 88f, 2 => 99f, _ => 119f };
-        float thickness = ActiveStep switch { 1 => 3f, 2 => 7f, _ => 16f };
+        float thickness = ActiveStep switch { 1 => 2f, 2 => 3.5f, _ => 7f };
         if (_resonanceActive)
         {
             radius *= GameBalance.ResonanceScytheRangeMultiplier;
@@ -251,12 +251,12 @@ public sealed class ScytheCombat
         float fadeStart = ActiveStep == 3 ? 0.7f : 0.62f;
         float trailAlpha = 1f - MathHelper.Clamp((attackProgress - fadeStart) / (1f - fadeStart), 0f, 1f);
         float visibleSweep = totalArc * MathHelper.Clamp(eased, 0.08f, 1f);
-        float outerThickness = thickness + (ActiveStep switch { 1 => 3f, 2 => 6f, _ => 10f });
+        float outerThickness = thickness + (ActiveStep switch { 1 => 2f, 2 => 3f, _ => 5f });
         batch.DrawArc(pixel, playerPosition, radius, start, visibleSweep, GameBalance.DeepViolet * (0.62f * trailAlpha), outerThickness, ActiveStep == 3 ? 34 : 24);
         batch.DrawArc(pixel, playerPosition, radius, start, visibleSweep, trail * trailAlpha, thickness, ActiveStep == 3 ? 34 : 24);
         if (ActiveStep == 3)
         {
-            batch.DrawArc(pixel, playerPosition, radius + 3f, start, visibleSweep, GameBalance.SoulWhite * (0.82f * trailAlpha), 4.5f, 34);
+            batch.DrawArc(pixel, playerPosition, radius + 3f, start, visibleSweep, GameBalance.SoulWhite * (0.72f * trailAlpha), 2.5f, 34);
         }
 
         Vector2 bladeDirection = new(MathF.Cos(current), MathF.Sin(current));
@@ -265,8 +265,8 @@ public sealed class ScytheCombat
             playerPosition + bladeDirection * 29f,
             null,
             Color.White,
-            current,
-            new Vector2(physicalScythe.Width, physicalScythe.Height) * 0.5f,
+            current + MathHelper.PiOver2,
+            new Vector2(148f, 158f),
             ActiveStep switch { 1 => 0.55f, 2 => 0.6f, _ => 0.7f },
             SpriteEffects.None,
             0f);

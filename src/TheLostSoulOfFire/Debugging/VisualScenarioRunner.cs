@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -9,31 +10,35 @@ using TheLostSoulOfFire.Input;
 namespace TheLostSoulOfFire.Debugging;
 
 /// <summary>
-/// Drives real input/debug seams at fixed update ticks. Scenarios never edit combat
-/// values or entity internals: they use the same title transition, debug spawn/clear
-/// hooks and input paths as a developer running the game.
+/// Drives real input at fixed update ticks. Single-subject fixtures arrange real
+/// entities through a narrow debug seam; combat values and state machines stay
+/// untouched. Sidecars report observed phases, not just scenario labels.
 /// </summary>
 public sealed class VisualScenarioRunner
 {
     private static readonly IReadOnlyDictionary<string, int> CaptureTicks =
         new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
         {
-            ["title-arrival"] = 20,
+            ["title-arrival"] = 180,
             ["arena-idle"] = 112,
             ["dash"] = 130,
             ["scythe-combo"] = 164,
-            ["hollow-swipe"] = 248,
-            ["burning-charge"] = 266,
-            ["devourer-slam"] = 306,
+            ["hollow-swipe"] = 164,
+            ["burning-charge"] = 130,
+            ["devourer-slam"] = 205,
             ["cannon-sense"] = 208,
             ["resonance-busy"] = 156,
             ["soul-release"] = 206,
-            ["death-retry"] = 126,
-            ["ending"] = 700
+            ["death-retry"] = 220,
+            ["ending"] = 2100
         };
 
     private readonly string _scenario;
     private readonly int _captureTick;
+    private readonly int[] _captureTicks;
+    private readonly bool _forceSense;
+    private readonly bool _forceResonance;
+    private readonly bool _semanticEnding;
     private int _tick;
     private int _combatTicks;
     private int _completedWave;
@@ -43,11 +48,18 @@ public sealed class VisualScenarioRunner
     public bool TimedOut => _tick > _captureTick + 180;
     public int Tick => _tick;
     public string Scenario => _scenario;
+    public bool IsLastCapture => _semanticEnding || _tick >= _captureTick;
+    public string OutputName => _captureTicks.Length > 1 ? $"{_scenario}-{_tick:D4}" : _scenario;
 
-    public VisualScenarioRunner(string scenario)
+    public VisualScenarioRunner(VisualRunOptions options)
     {
-        _scenario = scenario;
-        _captureTick = CaptureTicks[scenario];
+        _scenario = options.VisualScenario;
+        _forceSense = options.ForceSoulSense;
+        _forceResonance = options.ForceResonance;
+        _semanticEnding = _scenario == "ending" && options.CaptureTicks.Length == 0 && options.CaptureAfterTicks < 0;
+        _captureTicks = options.CaptureTicks.Length > 0 ? options.CaptureTicks :
+            [options.CaptureAfterTicks >= 0 ? options.CaptureAfterTicks : CaptureTicks[_scenario]];
+        _captureTick = _captureTicks.Last();
     }
 
     public static bool IsKnownScenario(string scenario) => CaptureTicks.ContainsKey(scenario);
@@ -79,23 +91,23 @@ public sealed class VisualScenarioRunner
                 break;
 
             case "scythe-combo":
-                SpawnAt(input, Keys.F2, 104);
-                if (_tick is 142 or 150 or 158)
+                if (_tick == 139) world.ArrangeVisualSubject(_scenario);
+                if (_tick is 142 or 150 or 171)
                 {
                     input.InjectLeftMouseDown();
                 }
                 break;
 
             case "hollow-swipe":
-                SpawnAt(input, Keys.F2, 100);
+                if (_tick == 100) world.ArrangeVisualSubject(_scenario);
                 break;
 
             case "burning-charge":
-                SpawnAt(input, Keys.F3, 100);
+                if (_tick == 100) world.ArrangeVisualSubject(_scenario);
                 break;
 
             case "devourer-slam":
-                SpawnAt(input, Keys.F4, 100);
+                if (_tick == 100) world.ArrangeVisualSubject(_scenario);
                 break;
 
             case "cannon-sense":
@@ -144,7 +156,15 @@ public sealed class VisualScenarioRunner
                 break;
         }
 
-        if (_tick == _captureTick)
+        if (_forceSense && _tick == 104 && _scenario != "cannon-sense")
+            input.InjectKeyPress(Keys.F7);
+        if (_forceResonance && _scenario != "resonance-busy")
+        {
+            if (_tick == 112) input.InjectKeyPress(Keys.F5);
+            if (_tick == 114) input.InjectKeyPress(Keys.R);
+        }
+
+        if (_semanticEnding ? world.LoopState == ArenaLoopState.Complete && world.PresentationStateTime >= 6f : _captureTicks.Contains(_tick))
         {
             CaptureRequested = true;
         }

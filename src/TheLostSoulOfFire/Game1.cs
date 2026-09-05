@@ -50,7 +50,7 @@ public sealed class Game1 : Microsoft.Xna.Framework.Game
         _presentationSettings.SetReducedEffects(_visualOptions.ReducedEffects);
         if (!string.IsNullOrEmpty(_visualOptions.VisualScenario))
         {
-            _visualScenarioRunner = new VisualScenarioRunner(_visualOptions.VisualScenario);
+            _visualScenarioRunner = new VisualScenarioRunner(_visualOptions);
         }
         _exitAfterVisualCapture = _visualOptions.ExitAfterCapture || !string.IsNullOrEmpty(_visualOptions.VisualScenario);
         _graphics = new GraphicsDeviceManager(this)
@@ -62,7 +62,9 @@ public sealed class Game1 : Microsoft.Xna.Framework.Game
 
         Content.RootDirectory = "Content";
         IsMouseVisible = true;
-        IsFixedTimeStep = true;
+        // Capture mode advances exactly one 60 Hz update per Draw, even when
+        // readback stalls. Normal play keeps MonoGame's fixed-step scheduler.
+        IsFixedTimeStep = !_visualOptions.HasCaptureRequest;
         TargetElapsedTime = TimeSpan.FromSeconds(1d / 60d);
         Window.Title = "The Lost Soul of Fire";
     }
@@ -85,8 +87,10 @@ public sealed class Game1 : Microsoft.Xna.Framework.Game
 
     protected override void Update(GameTime gameTime)
     {
-        _input.Update();
+        _input.Update(_visualOptions.HasCaptureRequest);
         _visualTick++;
+        if (_visualOptions.HasCaptureRequest)
+            gameTime = new GameTime(TimeSpan.FromTicks(TargetElapsedTime.Ticks * _visualTick), TargetElapsedTime);
         if (_visualOptions.CaptureStartAtTick == _visualTick)
         {
             _input.InjectKeyPress(Keys.Space);
@@ -125,7 +129,7 @@ public sealed class Game1 : Microsoft.Xna.Framework.Game
         }
 
         _world.Update(gameTime, _input, GraphicsDevice.Viewport);
-        if (_visualOptions.CaptureAfterTicks == _visualTick || _visualScenarioRunner is not null && _visualScenarioRunner.CaptureRequested)
+        if (_visualScenarioRunner is null && _visualOptions.CaptureAfterTicks == _visualTick || _visualScenarioRunner is not null && _visualScenarioRunner.CaptureRequested)
         {
             _screenshotRequested = true;
         }
@@ -155,7 +159,7 @@ public sealed class Game1 : Microsoft.Xna.Framework.Game
         {
             _screenshotRequested = false;
             string context = _visualScenarioRunner is not null ? _visualScenarioRunner.Scenario : _world.ScreenshotContext;
-            string outputName = _visualScenarioRunner is not null ? _visualScenarioRunner.Scenario : string.Empty;
+            string outputName = _visualScenarioRunner is not null ? _visualScenarioRunner.OutputName : string.Empty;
             string path;
             bool captured = _visualOptions.HasCaptureRequest
                 ? ScreenshotCapture.TrySaveBackBuffer(
@@ -164,7 +168,8 @@ public sealed class Game1 : Microsoft.Xna.Framework.Game
                     _visualOptions.CaptureOutput,
                     outputName,
                     _visualTick,
-                    out path)
+                    out path,
+                    _world.VisualSnapshot)
                 : ScreenshotCapture.TrySaveBackBuffer(GraphicsDevice, context, out path);
             _screenshotStatus = captured
                 ? $"Screenshot saved — {path}"
@@ -176,8 +181,11 @@ public sealed class Game1 : Microsoft.Xna.Framework.Game
             if (_exitAfterVisualCapture)
             {
                 Console.WriteLine($"VISUAL_CAPTURE_{(captured ? "PASS" : "FAIL")} context={context} path={path} tick={_visualTick} settings={_presentationSettings.Summary}");
-                Environment.ExitCode = captured ? 0 : 1;
-                Exit();
+                if (!captured || _visualScenarioRunner is null || _visualScenarioRunner.IsLastCapture)
+                {
+                    Environment.ExitCode = captured ? 0 : 1;
+                    Exit();
+                }
             }
         }
 
@@ -187,6 +195,7 @@ public sealed class Game1 : Microsoft.Xna.Framework.Game
     protected override void UnloadContent()
     {
         _world.Dispose();
+        _art.Dispose();
         _soulfireRenderer.Dispose();
         _pixel.Dispose();
         _spriteBatch.Dispose();

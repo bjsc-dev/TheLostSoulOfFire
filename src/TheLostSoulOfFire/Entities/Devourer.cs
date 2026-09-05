@@ -39,6 +39,8 @@ public sealed class Devourer : Enemy
     public int ConsumedSoulCount => _consumedSouls.Count;
     public Vector2 FacingDirection => _facing;
     public Vector2 TorsoPosition => Position + new Vector2(0f, -8f);
+    public float TelegraphProgress => MathHelper.Clamp(1f - _stateTimer / GameBalance.DevourerSlamTelegraph, 0f, 1f);
+    public float StrikeProgress => MathHelper.Clamp(1f - _stateTimer / GameBalance.DevourerSlamDuration, 0f, 1f);
 
     public Devourer(Vector2 position)
         : base(position, GameBalance.DevourerMaxHealth, GameBalance.DevourerRadius)
@@ -231,8 +233,11 @@ public sealed class Devourer : Enemy
             batch.FillCircle(pixel, Position + new Vector2(0f, -52f), 18f, new Color(20, 19, 26));
         }
 
-        batch.FillCircle(pixel, TorsoPosition, 28f, new Color(7, 5, 10));
-        batch.DrawCircle(pixel, TorsoPosition, 29f + pulse * 3f, GameBalance.DeepViolet * (0.55f + ConsumedSoulCount * 0.12f), 6f, 24);
+        if (!useSpriteArt)
+            batch.FillCircle(pixel, TorsoPosition, 28f, new Color(7, 5, 10));
+        // Keep the painted torso cavity visible; a solid primitive disk erased it.
+        batch.DrawArc(pixel, TorsoPosition, 22f + pulse, 0.25f, 1.7f,
+            GameBalance.DeepViolet * (0.38f + ConsumedSoulCount * 0.07f), 2f, 16);
 
         if (State == DevourerState.ApproachSoul && _targetSoul is not null)
         {
@@ -243,18 +248,6 @@ public sealed class Devourer : Enemy
         {
             batch.DrawLine(pixel, TorsoPosition, _targetSoul.Position, GameBalance.DeepViolet * 0.9f, 15f);
             batch.DrawLine(pixel, TorsoPosition, _targetSoul.Position, GameBalance.DeathFlameBright * 0.8f, 4f);
-        }
-
-        if (State == DevourerState.SlamTelegraph)
-        {
-            float progress = 1f - _stateTimer / GameBalance.DevourerSlamTelegraph;
-            batch.DrawCircle(pixel, Position, GameBalance.DevourerSlamRange * progress, GameBalance.DeathFlame * (0.25f + progress * 0.5f), 6f, 32);
-            batch.DrawLine(pixel, Position - right * 38f, Position - right * 46f - Vector2.UnitY * (45f + progress * 30f), body, 26f);
-            batch.DrawLine(pixel, Position + right * 38f, Position + right * 46f - Vector2.UnitY * (45f + progress * 30f), body, 26f);
-        }
-        else if (State == DevourerState.Slam)
-        {
-            batch.DrawCircle(pixel, Position, GameBalance.DevourerSlamRange, GameBalance.SoulWhite * 0.78f, 12f, 36);
         }
 
         if (soulSenseActive)

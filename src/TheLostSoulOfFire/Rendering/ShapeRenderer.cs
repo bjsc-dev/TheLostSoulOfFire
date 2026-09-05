@@ -6,6 +6,15 @@ namespace TheLostSoulOfFire.Rendering;
 
 public static class ShapeRenderer
 {
+    public static void FillEllipse(this SpriteBatch batch, Texture2D pixel, Vector2 center, float width, float height, Color color)
+    {
+        for (int y = -(int)height; y <= (int)height; y += 2)
+        {
+            float extent = width * MathF.Sqrt(MathF.Max(0f, 1f - y * y / (height * height)));
+            batch.DrawLine(pixel, center + new Vector2(-extent, y), center + new Vector2(extent, y), color, 2f);
+        }
+    }
+
     public static void FillRectangle(this SpriteBatch batch, Texture2D pixel, Rectangle rectangle, Color color) =>
         batch.Draw(pixel, rectangle, color);
 

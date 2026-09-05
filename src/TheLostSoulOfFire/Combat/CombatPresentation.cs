@@ -75,7 +75,7 @@ public sealed class CombatPresentation
             playerPosition + direction * (step == 3 ? 27f : 20f),
             MathF.Atan2(direction.Y, direction.X),
             scale,
-            color);
+            color * (step == 3 ? 0.38f : 0.26f));
     }
 
     public void SpawnScytheContact(
@@ -245,18 +245,18 @@ public sealed class CombatPresentation
 
     private void PresentResonanceEruption()
     {
-        _spriteVfx.Spawn("resonance_activate", _resonancePosition, 0f, 0.78f);
+        _spriteVfx.Spawn("resonance_activate", _resonancePosition, 0f, 0.56f, GameBalance.DeathFlameBright * 0.4f);
         _particles.EmitBurst(
             _resonancePosition,
             -Vector2.UnitY,
-            36,
+            18,
             GameBalance.SoulWhite,
             345f,
-            11f,
+            6f,
             VisualEffectPriority.Critical);
-        _particles.EmitDeathFlame(_resonancePosition, 24, 1.7f, VisualEffectPriority.Critical);
-        _screenEffects.AddShake(0.34f, 14f);
+        _particles.EmitDeathFlame(_resonancePosition, 12, 1f, VisualEffectPriority.Critical);
+        _screenEffects.AddShake(0.22f, 8f);
         _screenEffects.AddCameraKick(Vector2.UnitY, 6f);
-        _screenEffects.Flash(0.13f, 0.48f, GameBalance.SoulWhite);
+        _screenEffects.Flash(0.07f, 0.16f, GameBalance.SoulWhite);
     }
 }

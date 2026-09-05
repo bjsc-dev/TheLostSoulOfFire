@@ -195,7 +195,7 @@ public static class SoulfireLighting
                 SoulfireRenderSettings.ResonanceGlowRadius * resonancePulse,
                 GameBalance.DeathFlame,
                 SoulfireRenderSettings.ResonanceGlowIntensity);
-            renderer.DrawGlow(batch, playerCore, 58f * resonancePulse, GameBalance.SoulWhite, 0.46f);
+            renderer.DrawGlow(batch, playerCore, 42f * resonancePulse, GameBalance.SoulWhite, 0.24f);
         }
     }
 

@@ -38,6 +38,9 @@ public sealed class Burning : Enemy
     public bool IsCharging => State == BurningState.Charge;
     public bool IsAggressionCommitted => State is BurningState.Telegraph or BurningState.Charge;
     public Vector2 FacingDirection => _facing;
+    public Vector2 ChargeDirection => _chargeDirection;
+    public float TelegraphProgress => MathHelper.Clamp(1f - _stateTimer / GameBalance.BurningChargeTelegraph, 0f, 1f);
+    public float ChargeProgress => MathHelper.Clamp(1f - _stateTimer / GameBalance.BurningChargeDuration, 0f, 1f);
 
     public Burning(Vector2 position, int movementSeed)
         : base(position, GameBalance.BurningMaxHealth, GameBalance.BurningRadius)
@@ -236,12 +239,7 @@ public sealed class Burning : Enemy
             batch.DrawLine(pixel, fracture - right * 7f, fracture + right * 7f + _facing * 5f, GameBalance.DeathFlame * (0.42f + pulse * 0.38f), 3f);
         }
 
-        if (State == BurningState.Telegraph)
-        {
-            batch.DrawCircle(pixel, Position, 42f + telegraph * 30f, GameBalance.DeathFlame * (0.35f + telegraph * 0.55f), 5f + telegraph * 5f, 26);
-            batch.DrawLine(pixel, Position, Position + _chargeDirection * (90f + telegraph * 80f), GameBalance.DeathFlameBright * (0.3f + telegraph * 0.5f), 4f);
-        }
-        else if (State == BurningState.Charge)
+        if (State == BurningState.Charge)
         {
             batch.DrawLine(pixel, Position - _chargeDirection * 78f, Position, GameBalance.DeepViolet * 0.82f, 28f);
             batch.DrawLine(pixel, Position - _chargeDirection * 58f, Position, GameBalance.DeathFlameBright * 0.72f, 8f);

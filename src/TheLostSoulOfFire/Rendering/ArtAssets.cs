@@ -57,7 +57,7 @@ public sealed class SpritePlayback
         !clip.Loop && Elapsed(clipKey, globalTime) >= clip.Duration;
 }
 
-public sealed class ArtAssets
+public sealed class ArtAssets : IDisposable
 {
     private static readonly string[] Directions = ["n", "ne", "e", "se", "s", "sw", "w", "nw"];
     private readonly Dictionary<string, SpriteClip> _characterClips = [];
@@ -66,6 +66,7 @@ public sealed class ArtAssets
     private float _time;
 
     public Texture2D Arena { get; }
+    private readonly Texture2D _floorSurface;
     public Texture2D PhysicalScythe { get; }
     public Texture2D SoulCannon { get; }
     public Texture2D LostSoul { get; }
@@ -74,8 +75,12 @@ public sealed class ArtAssets
     public ArtAssets(ContentManager content)
     {
         Arena = content.Load<Texture2D>("Textures/Environment/arena_base_1800x1000");
-        PhysicalScythe = content.Load<Texture2D>("Textures/Weapons/scythe_physical_256");
-        SoulCannon = content.Load<Texture2D>("Textures/Weapons/soul_cannon_256");
+        _floorSurface = ArenaFloorSurface.Create(Arena);
+        // Delivery filenames are inverted: visual inspection shows the curved
+        // scythe in soul_cannon_256 and the straight barrel in scythe_physical_256.
+        // Keep original assets/provenance intact and bind by actual silhouette.
+        PhysicalScythe = content.Load<Texture2D>("Textures/Weapons/soul_cannon_256");
+        SoulCannon = content.Load<Texture2D>("Textures/Weapons/scythe_physical_256");
         LostSoul = content.Load<Texture2D>("Textures/Pickups/lost_soul_64");
         LifeFlame = content.Load<Texture2D>("Textures/Ending/life_flame_128");
 
@@ -99,7 +104,7 @@ public sealed class ArtAssets
         LoadEffect(content, "scythe_slash_02", "fx_scythe_slash_02", 256, 9, 24f, false);
         LoadEffect(content, "scythe_cleave", "fx_scythe_cleave", 256, 9, 22f, false);
         LoadEffect(content, "core_hit", "fx_core_hit", 128, 9, 30f, false);
-        LoadEffect(content, "dash_ignition", "fx_dash_ignition", 128, 9, 30f, false);
+        LoadEffect(content, "dash_ignition", "fx_dash_ignition", 128, 9, 45f, false);
         LoadEffect(content, "cannon_charge_loop", "fx_cannon_charge_loop", 128, 9, 12f, true);
         LoadEffect(content, "cannon_muzzle_full", "fx_cannon_muzzle_full", 256, 9, 24f, false);
         LoadEffect(content, "cannon_projectile_full", "fx_cannon_projectile_full", 128, 9, 18f, true);
@@ -113,8 +118,13 @@ public sealed class ArtAssets
 
     public SpriteClip GetEffect(string key) => _effects[key];
 
-    public void DrawArena(SpriteBatch batch) =>
+    public void DrawArena(SpriteBatch batch)
+    {
         batch.Draw(Arena, new Rectangle(0, 0, 1800, 1000), Color.White);
+        batch.Draw(_floorSurface, new Rectangle(0, 0, 1800, 1000), Color.White);
+    }
+
+    public void Dispose() => _floorSurface.Dispose();
 
     public void DrawPlayer(SpriteBatch batch, Player player)
     {
@@ -141,7 +151,7 @@ public sealed class ArtAssets
                 action = hollow.State switch
                 {
                     HollowState.Approach => "move",
-                    HollowState.Telegraph or HollowState.Swipe => "swipe",
+                    HollowState.Telegraph or HollowState.Swipe or HollowState.Recovery => "swipe",
                     _ => "idle"
                 };
                 facing = hollow.FacingDirection;
@@ -178,7 +188,19 @@ public sealed class ArtAssets
         }
 
         Color tint = enemy.HitFlashRemaining > 0f ? new Color(255, 235, 255) : Color.White;
-        DrawDirectional(batch, enemy, family, action, facing, enemy.Position, size, tint);
+        // Contact cells inspected in the delivered sheets. Timers remain owned
+        // by combat; turning and Draw cadence cannot advance an attack early.
+        float? frame = enemy switch
+        {
+            Hollow h when h.State == HollowState.Telegraph => h.TelegraphProgress * 2.99f,
+            Hollow h when h.State == HollowState.Swipe => 3f + h.StrikeProgress * 3.99f,
+            Hollow h when h.State == HollowState.Recovery => 7f + h.RecoveryProgress * 1.99f,
+            Burning b when b.State == BurningState.Charge => b.ChargeProgress * 8.99f,
+            Devourer d when d.State == DevourerState.SlamTelegraph => d.TelegraphProgress * 7.99f,
+            Devourer d when d.State == DevourerState.Slam => 8f + d.StrikeProgress * 7.99f,
+            _ => null
+        };
+        DrawDirectional(batch, enemy, family, action, facing, enemy.Position, size, tint, frame);
     }
 
     public void DrawLostSoul(SpriteBatch batch, Soul soul)
@@ -189,11 +211,12 @@ public sealed class ArtAssets
         }
 
         float pulse = 0.94f + MathF.Sin(_time * 5f) * 0.07f;
+        float departure = MathHelper.Clamp((soul.ReleaseProgress - 0.35f) / 0.65f, 0f, 1f);
         batch.Draw(
             LostSoul,
             soul.Position,
             null,
-            Color.White,
+            Color.White * (1f - departure * departure),
             0f,
             new Vector2(LostSoul.Width, LostSoul.Height) * 0.5f,
             0.7f * pulse,
@@ -270,13 +293,16 @@ public sealed class ArtAssets
         Vector2 facing,
         Vector2 position,
         float displaySize,
-        Color color)
+        Color color,
+        float? frame = null)
     {
         string direction = GetDirection(facing);
         string key = $"{family}/{action}/{direction}";
         SpriteClip clip = _characterClips[key];
         SpritePlayback playback = _playbacks.GetValue(owner, _ => new SpritePlayback());
-        float elapsed = playback.Elapsed(key, _time);
+        // Facing picks a sheet, not a new action. Turning must not reset gait.
+        float elapsed = frame.HasValue ? frame.Value / clip.FramesPerSecond
+            : playback.Elapsed($"{family}/{action}", _time);
         DrawClip(batch, clip, elapsed, position, 0f, displaySize / clip.FrameWidth, color);
     }
 

@@ -35,6 +35,9 @@ public sealed class Hollow : Enemy
     public override string StateLabel => State.ToString().ToUpperInvariant();
     public Vector2 FacingDirection => _facing;
     public Vector2 CorePosition => Position + new Vector2(0f, -5f);
+    public float TelegraphProgress => MathHelper.Clamp(1f - _stateTimer / GameBalance.HollowSwipeTelegraph, 0f, 1f);
+    public float StrikeProgress => MathHelper.Clamp(1f - _stateTimer / GameBalance.HollowSwipeDuration, 0f, 1f);
+    public float RecoveryProgress => MathHelper.Clamp(1f - _stateTimer / GameBalance.HollowRecoveryDuration, 0f, 1f);
 
     public Hollow(Vector2 position, int movementSeed)
         : base(position, GameBalance.HollowMaxHealth, GameBalance.HollowRadius)
@@ -177,16 +180,6 @@ public sealed class Hollow : Enemy
             Vector2 mask = Position + new Vector2(0f, -48f) + _facing * 2f;
             batch.FillCircle(pixel, mask, 13f, new Color(216, 211, 203));
             batch.DrawLine(pixel, mask - right * 5f, mask + right * 5f, new Color(130, 124, 128), 1.5f);
-        }
-
-        if (State == HollowState.Telegraph)
-        {
-            float radius = 48f + telegraph * 20f;
-            batch.DrawArc(pixel, Position, radius, MathF.Atan2(_facing.Y, _facing.X) - 0.8f, 1.6f, GameBalance.DeathFlame * (0.28f + telegraph * 0.5f), 4f, 18);
-        }
-        else if (State == HollowState.Swipe)
-        {
-            batch.DrawArc(pixel, Position, GameBalance.HollowSwipeRange, MathF.Atan2(_facing.Y, _facing.X) - 0.75f, 1.5f, GameBalance.SoulWhite * 0.72f, 9f, 20);
         }
 
         if (soulSenseActive)
