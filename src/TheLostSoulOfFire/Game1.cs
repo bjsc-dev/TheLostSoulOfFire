@@ -20,8 +20,11 @@ public sealed class Game1 : Microsoft.Xna.Framework.Game
     private SoulfireRenderer _soulfireRenderer = null!;
     private readonly bool _audioGameplayTest;
     private readonly bool _audioDeathRestartTest;
+    private readonly VisualCaptureOptions _visualCapture;
     private bool _screenshotRequested;
+    private bool _exitAfterScreenshot;
     private string _screenshotStatus = string.Empty;
+    private int _updateTick;
     private float _audioTestTotalTime;
     private float _audioTestStateTime;
     private int _audioTestWave;
@@ -30,10 +33,14 @@ public sealed class Game1 : Microsoft.Xna.Framework.Game
     private bool _audioTestRestartInjected;
     private bool _audioTestDeathRequested;
 
-    public Game1(bool audioGameplayTest = false, bool audioDeathRestartTest = false)
+    public Game1(
+        bool audioGameplayTest = false,
+        bool audioDeathRestartTest = false,
+        VisualCaptureOptions visualCapture = null)
     {
         _audioGameplayTest = audioGameplayTest;
         _audioDeathRestartTest = audioDeathRestartTest;
+        _visualCapture = visualCapture;
         _graphics = new GraphicsDeviceManager(this)
         {
             PreferredBackBufferWidth = GameBalance.BackBufferWidth,
@@ -67,6 +74,13 @@ public sealed class Game1 : Microsoft.Xna.Framework.Game
     protected override void Update(GameTime gameTime)
     {
         _input.Update();
+        _updateTick++;
+
+        if (_visualCapture is not null && _visualCapture.StartAtTick == _updateTick)
+        {
+            _input.InjectKeyPress(Keys.Space);
+        }
+
         if (_audioGameplayTest || _audioDeathRestartTest)
         {
             ConfigureAutomatedTest((float)gameTime.ElapsedGameTime.TotalSeconds);
@@ -82,6 +96,12 @@ public sealed class Game1 : Microsoft.Xna.Framework.Game
         if (_input.WasKeyPressed(Keys.F9))
         {
             _screenshotRequested = true;
+        }
+
+        if (_visualCapture is not null && _updateTick == _visualCapture.CaptureAfterTicks)
+        {
+            _screenshotRequested = true;
+            _exitAfterScreenshot = _visualCapture.ExitAfterCapture;
         }
 
         _world.Update(gameTime, _input, GraphicsDevice.Viewport);
@@ -103,12 +123,18 @@ public sealed class Game1 : Microsoft.Xna.Framework.Game
         if (_screenshotRequested)
         {
             _screenshotRequested = false;
-            _screenshotStatus = ScreenshotCapture.TrySaveBackBuffer(
+            bool saved = ScreenshotCapture.TrySaveBackBuffer(
                 GraphicsDevice,
                 _world.ScreenshotContext,
-                out string path)
-                ? $"Screenshot saved — {path}"
-                : $"Screenshot failed — {path}";
+                _updateTick,
+                _visualCapture?.OutputPath,
+                out string path);
+            _screenshotStatus = saved ? $"Screenshot saved — {path}" : $"Screenshot failed — {path}";
+            if (_exitAfterScreenshot)
+            {
+                Environment.ExitCode = saved ? 0 : 1;
+                Exit();
+            }
         }
 
         base.Draw(gameTime);

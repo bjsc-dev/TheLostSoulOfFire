@@ -1,6 +1,6 @@
 # Implementation backlog
 
-Status: **READY_WITH_ASSUMPTIONS**. All slices below are **TODO**; the planning session implemented none of them. Follow [HANDOFF.md](HANDOFF.md) to start. File paths are relative to the repository root; runtime shorthand `Rendering/`, `Game/`, etc. means beneath `src/TheLostSoulOfFire/`.
+Status: **IMPLEMENTATION_IN_PROGRESS**. VM-01 and VM-02 are DONE; remaining slices are TODO. Follow [HANDOFF.md](HANDOFF.md) for evidence and the next ready slice. File paths are relative to the repository root; runtime shorthand `Rendering/`, `Game/`, etc. means beneath `src/TheLostSoulOfFire/`.
 
 ## Execution rules
 
@@ -14,8 +14,8 @@ For each numbered acceptance item record PASS, FAIL or NOT_RUN. DONE requires al
 
 | ID | Priority | Slice | Depends on | Estimate | Status |
 |---|---|---|---|---|---|
-| VM-01 | P0 | Asset/build inventory and reference machine | — | 1 | TODO |
-| VM-02 | P0 | Worktree-safe capture CLI and baseline | VM-01 | 1 | TODO |
+| VM-01 | P0 | Asset/build inventory and reference machine | — | 1 | DONE — inventory, locked hashes, Release build and reference-host record added |
+| VM-02 | P0 | Worktree-safe capture CLI and baseline | VM-01 | 1 | DONE — worktree-safe CLI, sidecars, title/arena baselines and gameplay smoke verified |
 | VM-03 | P0 | Deterministic visual fixtures | VM-02 | 2–3 | TODO |
 | VM-04 | P0 | Comparison reports and frame metrics | VM-03 | 1–2 | TODO |
 | VM-05 | P1 | Shared coordinates and pixel/aspect policy | VM-04 | 1–2 | TODO |

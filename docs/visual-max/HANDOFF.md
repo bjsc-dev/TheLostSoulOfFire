@@ -1,18 +1,25 @@
 # Visual Max handoff
 
-Status: **READY_WITH_ASSUMPTIONS** · Planning completed 2026-09-05.
+Status: **IMPLEMENTATION_IN_PROGRESS** · baseline asset/capture slice updated 2026-09-05.
 
 ## Start here
 
-Read [VISUAL-MAX-PLAN.md](VISUAL-MAX-PLAN.md), then [IMPLEMENTATION-BACKLOG.md](IMPLEMENTATION-BACKLOG.md). Implement **VM-01 — Asset/build inventory and reference machine** first. Next is **VM-02 — Worktree-safe capture CLI and current baseline**. All nineteen implementation slices remain TODO. This session changed documentation and added two reusable templates; it did not refactor the game or implement the proposed harness.
+Read [SCREENSHOT-WORKFLOW.md](SCREENSHOT-WORKFLOW.md) for the immediate low-touch capture command, then [IMPLEMENTATION-BACKLOG.md](IMPLEMENTATION-BACKLOG.md). VM-01 and VM-02 are DONE: inventory/validation, worktree-safe capture options, metadata sidecars, a reference-host record and current title/first-arena PNG baselines are present. VM-03 deterministic semantic fixtures is now the next ready slice.
 
 Use this next-session instruction:
 
-> Implement VM-01 from docs/visual-max/IMPLEMENTATION-BACKLOG.md. Read the master plan and repository audit first. Preserve MonoGame, net9.0, current architecture and locked source hashes. Work autonomously within the slice, use the documented assumptions, and do not make paid generation calls. Produce the portable inventory and validation evidence, run relevant checks, update the slice status only when acceptance criteria pass, and leave a handoff with the next ready slice. If a tool or graphics host is unavailable, complete independent work and report that specific missing evidence.
+> Implement VM-03 deterministic visual fixtures without changing MonoGame, net9.0, Game1/GameWorld ownership, gameplay constants or locked-source hashes. Reuse the capture sidecar/output contract, arrange semantic state through narrow debug hooks and record unsupported-host results honestly.
 
 For a later full-workstream request, select ready slices by priority and dependencies, complete one or a tightly coupled pair per session, and use [templates/session-handoff.md](templates/session-handoff.md). A missing optional provider does not block code, briefs, existing-asset derivatives or capture tooling. A missing required visual test remains NOT_RUN, not a presumed pass.
 
-## What was delivered
+## What was delivered in the implementation slice
+
+- Offline runtime asset inventory/validator at `tools/visual-max/visual_assets.py`, with locked-hash, MGCB-path, grid, runtime-key and temporary-fixture checks.
+- A staged authoring root (`art/visual-max/`), manifest template and placeholder-friendly promotion states.
+- Optional `--capture-after-ticks`, `--capture-output`, `--capture-start-at-tick` and `--exit-after-capture` support; screenshots now have tick/build JSON sidecars and resolve `.git` worktree files correctly.
+- Operator docs for the asset pipeline, folders, Ludo/tool handoff, screenshots and a bounded Astra review loop.
+
+## What was delivered in planning
 
 - Six requested planning documents, plus repository audit, visual QA design and this handoff.
 - Nineteen implementation slices with priorities, dependencies, scope, explicit acceptance criteria and evidence requirements.
@@ -29,14 +36,15 @@ Source baseline: `f510e4dcdefb837957c577cd197a8c22ca2f1116`. Worktree was clean 
 | Check | Result | Details |
 |---|---|---|
 | `dotnet restore TheLostSoulOfFire.sln --ignore-failed-sources` | PASS, exit 0 | Project restore completed |
-| `dotnet build TheLostSoulOfFire.sln --no-restore` | PASS, exit 0 | Content processing and Debug/net9.0 assembly; 0 warnings, 0 errors |
+| `dotnet build TheLostSoulOfFire.sln -c Release --no-restore` | PASS, exit 0 | Content processing and Release/net9.0 assembly; 0 warnings, 0 errors |
 | `dotnet test TheLostSoulOfFire.sln --no-build --no-restore` | Exit 0; NO TEST SUITE | No test project exists; no unit-test pass count can be claimed |
 | `python3 tools/audio/validate_audio.py` | PASS, exit 0 | 29 assets pass format, level, duration, loop, source and manifest checks |
 | Default Python art audit | Initial environment failure | `ModuleNotFoundError: PIL`; no asset defect inferred |
 | Art audit with existing Pillow-capable runtime | PASS, exit 0 | 3 locked hashes, 7 static checks, 96 animation sheets, 12 VFX sheets, 116 content PNGs |
 | Automated gameplay in sandbox | Initial graphics-host failure, exit 134 | `NoSuitableGraphicsDeviceException` during OpenGL initialization |
 | Same automated gameplay with desktop access | PASS, exit 0 | `AUDIO_GAMEPLAY_TEST_PASS waves=4 completion=true restart=true` |
-| Fresh screenshot / visual-regression suite | NOT_RUN | No deterministic visual runner exists yet; archived capture inspected for reference only |
+| Fresh title + first-arena capture | PASS | 1280×720 post-HUD PNG + tick/build sidecars via new CLI; stored locally under ignored `artifacts/visual-max/` |
+| Deterministic visual-regression suite | NOT_RUN | VM-03 semantic fixtures and VM-04 comparison reports are not implemented yet |
 | Performance / non-macOS runtime | NOT_RUN | No measured GPU budget or Windows/Linux runtime claim |
 | Documentation validation | PASS | Local links resolve across 11 Markdown files; all 6 requested files exist; 19 backlog sections match the index; whitespace/newline checks pass |
 
